@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         ${notificationId},
         ${expoPushToken},
         ${ticket.status || 'pending'},
-        ${ticket.message || null}
+        ${(ticket as any).details?.errorMessage || (ticket as any).message || null}
       )
     `;
 

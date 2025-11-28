@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
               ${notificationId},
               ${pushToken},
               ${ticket.status || 'pending'},
-              ${ticket.message || null}
+              ${(ticket as any).details?.errorMessage || (ticket as any).message || null}
             )
           `;
         }
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
               ${notificationId},
               ${message.to},
               'error',
-              ${error.message || 'Failed to send'}
+              ${(error as Error).message || 'Failed to send'}
             )
           `;
         }

@@ -9,7 +9,7 @@ interface Notification {
   title: string
   message: string
   timestamp: Date
-  status: string
+  status: "sent" | "delivered" | "failed"
   imageUrl?: string
   deepLinkType?: string
   deepLinkValue?: string
@@ -37,7 +37,7 @@ export default function PushNotificationsModule() {
         title: item.title,
         message: item.message,
         timestamp: new Date(item.created_at),
-        status: item.status,
+        status: (item.status === 'sent' || item.status === 'delivered' || item.status === 'failed') ? item.status : 'sent',
         imageUrl: item.image_url,
         deepLinkType: item.deep_link_type,
         deepLinkValue: item.deep_link_value,

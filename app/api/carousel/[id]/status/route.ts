@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import sql from "@/lib/db";
 import { verifySession } from "@/lib/auth";
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify session
     const authHeader = request.headers.get("authorization");

@@ -2,7 +2,8 @@ import sql from "./db"
 
 // Utility function to convert string to ArrayBuffer
 function stringToArrayBuffer(str: string): ArrayBuffer {
-  return new TextEncoder().encode(str);
+  const uint8Array = new TextEncoder().encode(str);
+  return uint8Array.buffer;
 }
 
 // Utility function to convert ArrayBuffer to hex string

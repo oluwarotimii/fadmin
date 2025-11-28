@@ -94,7 +94,7 @@ export async function DELETE(request: NextRequest) {
     let currentTokens = userResult[0].push_tokens ? userResult[0].push_tokens.split(',') : [];
     
     // Remove the token if it exists in the list
-    currentTokens = currentTokens.filter(token => token !== expoPushToken);
+    currentTokens = currentTokens.filter((token: string) => token !== expoPushToken);
 
     // Update the user's push tokens
     await sql`
