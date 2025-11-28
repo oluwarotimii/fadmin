@@ -17,8 +17,8 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
     imageUrl: "",
     deepLinkType: "none",
     deepLinkValue: "",
-    recipient: "all",
-    userId: "",
+    recipientType: "all",
+    recipientUserId: "",
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,8 +30,8 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
       imageUrl: "",
       deepLinkType: "none",
       deepLinkValue: "",
-      recipient: "all",
-      userId: "",
+      recipientType: "all",
+      recipientUserId: "",
     })
   }
 
@@ -67,21 +67,21 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
 
       <FormSelect
         label="Recipient"
-        value={formData.recipient}
-        onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
+        value={formData.recipientType}
+        onChange={(e) => setFormData({ ...formData, recipientType: e.target.value })}
         options={[
           { label: "All Users", value: "all" },
-          { label: "Single User", value: "single" },
+          { label: "Specific User", value: "specific" },
         ]}
       />
 
-      {formData.recipient === "single" && (
+      {formData.recipientType === "specific" && (
         <FormField
           label="User ID"
           type="text"
           placeholder="Enter user ID"
-          value={formData.userId}
-          onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+          value={formData.recipientUserId}
+          onChange={(e) => setFormData({ ...formData, recipientUserId: e.target.value })}
         />
       )}
 

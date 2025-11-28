@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/dashboard-layout"
 import DashboardHeader from "@/components/dashboard-header"
 import PushNotificationsModule from "@/components/push-notifications-module"
 import CarouselModule from "@/components/carousel-module"
+import TrendingBannerModule from "@/components/trending-banner-module"
 import ThemeToggle from "@/components/theme-toggle"
 import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/solid"
 
@@ -15,7 +16,7 @@ interface User {
 }
 
 export default function Home() {
-  const [activeModule, setActiveModule] = useState<"notifications" | "carousel">("notifications")
+  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner">("notifications")
   const [isDark, setIsDark] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -93,6 +94,7 @@ export default function Home() {
       <main className="flex-1 overflow-y-auto">
         {activeModule === "notifications" && <PushNotificationsModule />}
         {activeModule === "carousel" && <CarouselModule />}
+        {activeModule === "banner" && <TrendingBannerModule />}
       </main>
     </DashboardLayout>
   )

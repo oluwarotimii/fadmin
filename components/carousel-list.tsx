@@ -10,7 +10,7 @@ interface CarouselItem {
   linkType: string
   linkValue: string
   status: "active" | "inactive"
-  order: number
+  position: number
 }
 
 interface CarouselListProps {
@@ -30,7 +30,7 @@ export default function CarouselList({ items, onDelete, onToggleStatus, onReorde
           <p className="text-muted-foreground text-sm text-center py-8">No carousel items yet</p>
         ) : (
           items
-            .sort((a, b) => a.order - b.order)
+            .sort((a, b) => a.position - b.position)
             .map((item) => (
               <div
                 key={item.id}
@@ -42,11 +42,10 @@ export default function CarouselList({ items, onDelete, onToggleStatus, onReorde
                     <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
                   </div>
                   <span
-                    className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
-                      item.status === "active"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
-                    }`}
+                    className={`text-xs px-2 py-1 rounded whitespace-nowrap ${item.status === "active"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+                      }`}
                   >
                     {item.status}
                   </span>
@@ -71,11 +70,10 @@ export default function CarouselList({ items, onDelete, onToggleStatus, onReorde
                   </button>
                   <button
                     onClick={() => onToggleStatus(item.id)}
-                    className={`text-xs px-2 py-1 rounded transition-colors ${
-                      item.status === "active"
-                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-                        : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200"
-                    }`}
+                    className={`text-xs px-2 py-1 rounded transition-colors ${item.status === "active"
+                      ? "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                      : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200"
+                      }`}
                   >
                     {item.status === "active" ? "Deactivate" : "Activate"}
                   </button>

@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { EnvelopeIcon, LockClosedIcon } from "@heroicons/react/24/solid"
 
 export default function LoginPage() {
@@ -55,9 +56,19 @@ export default function LoginPage() {
       <div className="w-full max-w-md px-4">
         <div className="bg-card rounded-lg border border-border p-8 space-y-6">
           {/* Header */}
-          <div>
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-16 h-16 rounded-md bg-primary/10">
+              <Image
+                src="/logo.svg"
+                alt="Expo Admin Logo"
+                width={60}
+                height={60}
+                className="mb-4 rounded-md"
+                priority
+              />
+            </div>
             <h1 className="text-2xl font-bold text-primary">Expo Admin</h1>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground mt-2 text-center">
               {isSignUp ? "Create an account" : "Sign in to manage push notifications and carousel"}
             </p>
           </div>

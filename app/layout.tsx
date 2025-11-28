@@ -10,6 +10,9 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Expo Admin Dashboard",
   description: "Manage push notifications and carousels",
+  icons: {
+    icon: '/logo.svg',
+  },
 }
 
 export default function RootLayout({

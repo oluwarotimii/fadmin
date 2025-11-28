@@ -1,16 +1,17 @@
 "use client"
 
-import { BellIcon, SparklesIcon } from "@heroicons/react/24/solid"
+import { BellIcon, SparklesIcon, PhotoIcon } from "@heroicons/react/24/solid"
 
 interface NavTabsProps {
-  activeModule: "notifications" | "carousel"
-  onModuleChange: (module: "notifications" | "carousel") => void
+  activeModule: "notifications" | "carousel" | "banner"
+  onModuleChange: (module: "notifications" | "carousel" | "banner") => void
 }
 
 export default function NavTabs({ activeModule, onModuleChange }: NavTabsProps) {
   const tabs = [
     { id: "notifications", label: "Push Notifications", icon: BellIcon },
     { id: "carousel", label: "Carousel", icon: SparklesIcon },
+    { id: "banner", label: "Trending Banner", icon: PhotoIcon },
   ] as const
 
   return (
@@ -24,10 +25,9 @@ export default function NavTabs({ activeModule, onModuleChange }: NavTabsProps) 
             className={`
               px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium
               transition-colors duration-200 flex items-center gap-2
-              ${
-                activeModule === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground hover:bg-border"
+              ${activeModule === tab.id
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground hover:bg-border"
               }
             `}
           >

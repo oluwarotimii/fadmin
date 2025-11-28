@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  push_tokens TEXT, -- Comma-separated list of Expo push tokens for this user
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -49,6 +50,17 @@ CREATE TABLE IF NOT EXISTS carousel_items (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create notification_history table to track sent notifications
+CREATE TABLE IF NOT EXISTS notification_history (
+  id SERIAL PRIMARY KEY,
+  notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  push_token VARCHAR(255) NOT NULL,
+  delivery_status VARCHAR(50) DEFAULT 'pending', -- pending, sent, delivered, error
+  error_message TEXT,
+  sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  delivered_at TIMESTAMP
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
@@ -56,6 +68,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notification_history_notification_id ON notification_history(notification_id);
+CREATE INDEX IF NOT EXISTS idx_notification_history_push_token ON notification_history(push_token);
+CREATE INDEX IF NOT EXISTS idx_notification_history_status ON notification_history(delivery_status);
 CREATE INDEX IF NOT EXISTS idx_carousel_items_user_id ON carousel_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_carousel_items_position ON carousel_items(position);
 CREATE INDEX IF NOT EXISTS idx_carousel_items_status ON carousel_items(status);
