@@ -2,17 +2,21 @@ import { NextRequest } from "next/server";
 import sql from "@/lib/db";
 import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
 
+export async function GET(request: NextRequest) {
+  // Return a simple response for GET requests to verify the endpoint exists
+  const response = Response.json({
+    message: "Expo token endpoint - use POST to register tokens or DELETE to remove tokens",
+    methods: ["POST", "DELETE", "OPTIONS"]
+  });
+  return addAPICorsHeaders(response);
+}
+
 export async function OPTIONS() {
   return handleAPICorsPreflight();
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Handle preflight for POST request
-    if (request.method === "OPTIONS") {
-      return handleAPICorsPreflight();
-    }
-
     const body = await request.json();
     const { expoPushToken } = body;
 
