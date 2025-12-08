@@ -1,17 +1,30 @@
 import { NextRequest } from "next/server";
 import sql from "@/lib/db";
+import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+
+export async function OPTIONS() {
+  return handleAPICorsPreflight();
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { expoPushToken } = await request.json();
+    // Handle preflight for POST request
+    if (request.method === "OPTIONS") {
+      return handleAPICorsPreflight();
+    }
+
+    const body = await request.json();
+    const { expoPushToken } = body;
 
     if (!expoPushToken) {
-      return Response.json({ error: "Expo push token is required" }, { status: 400 });
+      const response = Response.json({ error: "Expo push token is required" }, { status: 400 });
+      return addAPICorsHeaders(response);
     }
 
     // Validate that it's a valid Expo push token format
     if (!expoPushToken.startsWith('ExpoPushToken[') || !expoPushToken.endsWith(']')) {
-      return Response.json({ error: "Invalid Expo push token format" }, { status: 400 });
+      const response = Response.json({ error: "Invalid Expo push token format" }, { status: 400 });
+      return addAPICorsHeaders(response);
     }
 
     // Find a system user to store all mobile app tokens (e.g., user with email 'system@mobileapp.com')
@@ -50,22 +63,26 @@ export async function POST(request: NextRequest) {
       WHERE id = ${userId}
     `;
 
-    return Response.json({
+    const response = Response.json({
       success: true,
       message: "Expo push token registered successfully"
     });
+    return addAPICorsHeaders(response);
   } catch (error: any) {
     console.error("Error registering Expo push token:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    const response = Response.json({ error: error.message }, { status: 500 });
+    return addAPICorsHeaders(response);
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { expoPushToken } = await request.json();
+    const body = await request.json();
+    const { expoPushToken } = body;
 
     if (!expoPushToken) {
-      return Response.json({ error: "Expo push token is required" }, { status: 400 });
+      const response = Response.json({ error: "Expo push token is required" }, { status: 400 });
+      return addAPICorsHeaders(response);
     }
 
     // Find the system user that stores mobile app tokens
@@ -74,7 +91,8 @@ export async function DELETE(request: NextRequest) {
     `;
 
     if (!systemUser.length) {
-      return Response.json({ error: "No system user found" }, { status: 404 });
+      const response = Response.json({ error: "No system user found" }, { status: 404 });
+      return addAPICorsHeaders(response);
     }
 
     let currentTokens = systemUser[0].push_tokens ? systemUser[0].push_tokens.split(',') : [];
@@ -89,12 +107,14 @@ export async function DELETE(request: NextRequest) {
       WHERE id = ${systemUser[0].id}
     `;
 
-    return Response.json({
+    const response = Response.json({
       success: true,
       message: "Expo push token removed successfully"
     });
+    return addAPICorsHeaders(response);
   } catch (error: any) {
     console.error("Error removing Expo push token:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    const response = Response.json({ error: error.message }, { status: 500 });
+    return addAPICorsHeaders(response);
   }
 }

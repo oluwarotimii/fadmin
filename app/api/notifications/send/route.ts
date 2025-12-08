@@ -2,26 +2,38 @@ import { NextRequest } from "next/server";
 import { Expo } from 'expo-server-sdk';
 import sql from "@/lib/db";
 import { verifySession } from "@/lib/auth";
+import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+
+export async function OPTIONS() {
+  return handleAPICorsPreflight();
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // Handle preflight for POST request
+    if (request.method === "OPTIONS") {
+      return handleAPICorsPreflight();
+    }
     // Verify session
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
     
     if (!token) {
-      return Response.json({ error: "Authorization token required" }, { status: 401 });
+      const response = Response.json({ error: "Authorization token required" }, { status: 401 });
+      return addAPICorsHeaders(response);
     }
-    
+
     const user = await verifySession(token);
     if (!user) {
-      return Response.json({ error: "Invalid or expired session" }, { status: 401 });
+      const response = Response.json({ error: "Invalid or expired session" }, { status: 401 });
+      return addAPICorsHeaders(response);
     }
 
     const { notificationId } = await request.json();
 
     if (!notificationId) {
-      return Response.json({ error: "Notification ID is required" }, { status: 400 });
+      const response = Response.json({ error: "Notification ID is required" }, { status: 400 });
+      return addAPICorsHeaders(response);
     }
 
     // Get notification details
@@ -30,13 +42,15 @@ export async function POST(request: NextRequest) {
     `;
 
     if (!notificationResult.length) {
-      return Response.json({ error: "Notification not found" }, { status: 404 });
+      const response = Response.json({ error: "Notification not found" }, { status: 404 });
+      return addAPICorsHeaders(response);
     }
 
     const notification = notificationResult[0];
 
     if (notification.status === 'sent') {
-      return Response.json({ error: "Notification already sent" }, { status: 400 });
+      const response = Response.json({ error: "Notification already sent" }, { status: 400 });
+      return addAPICorsHeaders(response);
     }
 
     // Initialize Expo SDK
@@ -75,22 +89,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (!pushTokens || pushTokens.length === 0) {
-      return Response.json({ 
+      const response = Response.json({
         error: "No Expo push tokens found for recipients",
         success: true,
         message: "Notification saved but no recipients found to send to"
       });
+      return addAPICorsHeaders(response);
     }
 
     // Validate push tokens
     const validPushTokens = pushTokens.filter(token => Expo.isExpoPushToken(token));
-    
+
     if (validPushTokens.length === 0) {
-      return Response.json({ 
+      const response = Response.json({
         error: "No valid Expo push tokens found",
         success: true,
         message: "Notification saved but no valid recipient tokens found"
       });
+      return addAPICorsHeaders(response);
     }
 
     // Create push notification messages
@@ -159,7 +175,8 @@ export async function POST(request: NextRequest) {
           `;
         }
 
-        return Response.json({ error: "Failed to send some notifications" }, { status: 500 });
+        const response = Response.json({ error: "Failed to send some notifications" }, { status: 500 });
+        return addAPICorsHeaders(response);
       }
     }
 
@@ -170,13 +187,15 @@ export async function POST(request: NextRequest) {
       WHERE id = ${notificationId}
     `;
 
-    return Response.json({
+    const response = Response.json({
       success: true,
       message: `Successfully sent ${validPushTokens.length} notifications`,
       tickets: tickets
     });
+    return addAPICorsHeaders(response);
   } catch (error: any) {
     console.error("Error sending push notification:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    const response = Response.json({ error: error.message }, { status: 500 });
+    return addAPICorsHeaders(response);
   }
 }
