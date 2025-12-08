@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate that it's a valid Expo push token format
-    if (!expoPushToken.startsWith('ExpoPushToken[') || !expoPushToken.endsWith(']')) {
+    if (!expoPushToken.startsWith('ExponentPushToken[') || !expoPushToken.endsWith(']')) {
       const response = Response.json({ error: "Invalid Expo push token format" }, { status: 400 });
       return addAPICorsHeaders(response);
     }
