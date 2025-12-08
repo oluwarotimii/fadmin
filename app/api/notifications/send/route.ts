@@ -48,15 +48,13 @@ export async function POST(request: NextRequest) {
     let pushTokens: string[] = [];
 
     if (notification.recipient_type === 'all') {
-      // Fetch all Expo push tokens from users (assuming they have a tokens column)
-      // Note: You may need to adjust this query based on how you store Expo push tokens
-      const tokenResult = await sql`
-        SELECT DISTINCT unnest(string_to_array(push_tokens, ',')) as token
-        FROM users 
-        WHERE push_tokens IS NOT NULL
-        AND push_tokens != ''
+      // Fetch Expo push tokens from the system user (for mobile app tokens)
+      const systemUserResult = await sql`
+        SELECT push_tokens FROM users WHERE email = 'system@mobileapp.com'
       `;
-      pushTokens = tokenResult.map((row: any) => row.token);
+      if (systemUserResult.length > 0 && systemUserResult[0].push_tokens) {
+        pushTokens = systemUserResult[0].push_tokens.split(',');
+      }
     } else if (notification.recipient_type === 'specific' && notification.recipient_user_id) {
       // Fetch push tokens for specific user
       const tokenResult = await sql`
@@ -67,15 +65,13 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Handle custom groups or other recipient types as needed
-      // For now, we'll just fetch all tokens
-      const tokenResult = await sql`
-        SELECT push_tokens FROM users WHERE push_tokens IS NOT NULL AND push_tokens != ''
+      // For now, we'll just fetch tokens from system user
+      const systemUserResult = await sql`
+        SELECT push_tokens FROM users WHERE email = 'system@mobileapp.com'
       `;
-      tokenResult.forEach((row: any) => {
-        if (row.push_tokens) {
-          pushTokens = pushTokens.concat(row.push_tokens.split(','));
-        }
-      });
+      if (systemUserResult.length > 0 && systemUserResult[0].push_tokens) {
+        pushTokens = systemUserResult[0].push_tokens.split(',');
+      }
     }
 
     if (!pushTokens || pushTokens.length === 0) {

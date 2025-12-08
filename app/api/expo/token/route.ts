@@ -1,22 +1,8 @@
 import { NextRequest } from "next/server";
 import sql from "@/lib/db";
-import { verifySession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify session
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
-    
-    if (!token) {
-      return Response.json({ error: "Authorization token required" }, { status: 401 });
-    }
-    
-    const user = await verifySession(token);
-    if (!user) {
-      return Response.json({ error: "Invalid or expired session" }, { status: 401 });
-    }
-
     const { expoPushToken } = await request.json();
 
     if (!expoPushToken) {
@@ -28,32 +14,45 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid Expo push token format" }, { status: 400 });
     }
 
-    // Get current push tokens for the user
-    const userResult = await sql`
-      SELECT push_tokens FROM users WHERE id = ${user.id}
+    // Find a system user to store all mobile app tokens (e.g., user with email 'system@mobileapp.com')
+    // If the user doesn't exist, create one
+    let systemUser = await sql`
+      SELECT id, push_tokens FROM users WHERE email = 'system@mobileapp.com'
     `;
 
-    if (!userResult.length) {
-      return Response.json({ error: "User not found" }, { status: 404 });
-    }
+    let userId: number;
+    let currentTokens: string[] = [];
 
-    let currentTokens = userResult[0].push_tokens ? userResult[0].push_tokens.split(',') : [];
+    if (systemUser.length === 0) {
+      // Create a system user to store mobile app tokens
+      const newUser = await sql`
+        INSERT INTO users (email, password_hash, push_tokens)
+        VALUES ('system@mobileapp.com', '', NULL)
+        RETURNING id, push_tokens
+      `;
+      userId = newUser[0].id;
+    } else {
+      userId = systemUser[0].id;
+      if (systemUser[0].push_tokens) {
+        currentTokens = systemUser[0].push_tokens.split(',');
+      }
+    }
 
     // Add the new token if it's not already in the list
     if (!currentTokens.includes(expoPushToken)) {
       currentTokens.push(expoPushToken);
     }
 
-    // Update the user's push tokens
+    // Update the system user's push tokens
     await sql`
       UPDATE users
       SET push_tokens = ${currentTokens.length > 0 ? currentTokens.join(',') : null}
-      WHERE id = ${user.id}
+      WHERE id = ${userId}
     `;
 
-    return Response.json({ 
-      success: true, 
-      message: "Expo push token registered successfully" 
+    return Response.json({
+      success: true,
+      message: "Expo push token registered successfully"
     });
   } catch (error: any) {
     console.error("Error registering Expo push token:", error);
@@ -63,49 +62,36 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Verify session
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
-    
-    if (!token) {
-      return Response.json({ error: "Authorization token required" }, { status: 401 });
-    }
-    
-    const user = await verifySession(token);
-    if (!user) {
-      return Response.json({ error: "Invalid or expired session" }, { status: 401 });
-    }
-
     const { expoPushToken } = await request.json();
 
     if (!expoPushToken) {
       return Response.json({ error: "Expo push token is required" }, { status: 400 });
     }
 
-    // Get current push tokens for the user
-    const userResult = await sql`
-      SELECT push_tokens FROM users WHERE id = ${user.id}
+    // Find the system user that stores mobile app tokens
+    const systemUser = await sql`
+      SELECT id, push_tokens FROM users WHERE email = 'system@mobileapp.com'
     `;
 
-    if (!userResult.length) {
-      return Response.json({ error: "User not found" }, { status: 404 });
+    if (!systemUser.length) {
+      return Response.json({ error: "No system user found" }, { status: 404 });
     }
 
-    let currentTokens = userResult[0].push_tokens ? userResult[0].push_tokens.split(',') : [];
-    
+    let currentTokens = systemUser[0].push_tokens ? systemUser[0].push_tokens.split(',') : [];
+
     // Remove the token if it exists in the list
     currentTokens = currentTokens.filter((token: string) => token !== expoPushToken);
 
-    // Update the user's push tokens
+    // Update the system user's push tokens
     await sql`
-      UPDATE users 
+      UPDATE users
       SET push_tokens = ${currentTokens.length > 0 ? currentTokens.join(',') : null}
-      WHERE id = ${user.id}
+      WHERE id = ${systemUser[0].id}
     `;
 
-    return Response.json({ 
-      success: true, 
-      message: "Expo push token removed successfully" 
+    return Response.json({
+      success: true,
+      message: "Expo push token removed successfully"
     });
   } catch (error: any) {
     console.error("Error removing Expo push token:", error);

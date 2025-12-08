@@ -359,7 +359,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export async function registerForPushNotifications(authToken: string) {
+export async function registerForPushNotifications() {
   let token: string | undefined;
 
   if (!Device.isDevice) {
@@ -385,13 +385,12 @@ export async function registerForPushNotifications(authToken: string) {
   token = (await Notifications.getExpoPushTokenAsync()).data;
   console.log('Expo push token:', token);
 
-  // Register token with backend
+  // Register token with backend (no authentication required)
   try {
     const response = await fetch(`${API_BASE_URL}/api/expo/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`, // Your user's session token
       },
       body: JSON.stringify({ expoPushToken: token }),
     });
@@ -440,7 +439,7 @@ export default function App() {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
       console.log('Notification tapped:', data);
-      
+
       // Handle deep linking
       if (data?.deepLinkType && data?.deepLinkValue) {
         handleDeepLink(data.deepLinkType, data.deepLinkValue);
@@ -478,7 +477,7 @@ export default function App() {
 ### Step 3: Test Push Notifications
 
 1. **Run your Expo app** on a physical device (push notifications don't work on simulators)
-2. **Log in** to ensure the push token is registered
+2. **The push token will be registered automatically** (no login required)
 3. **Go to your admin dashboard** at `YOUR_ADMIN_DASHBOARD_URL`
 4. **Navigate to the Notifications tab**
 5. **Create and send a notification**:
@@ -500,13 +499,13 @@ You should receive the notification on your device!
 |--------|----------|-------------|
 | GET | `/api/carousel/public?limit=10` | Fetch active carousel items |
 | GET | `/api/banner/public` | Fetch active trending banner |
+| POST | `/api/expo/token` | Register Expo push token (NEW - no auth required) |
+| DELETE | `/api/expo/token` | Remove Expo push token (NEW - no auth required) |
 
 ### Protected Endpoints (Auth Required)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/expo/token` | Register Expo push token |
-| DELETE | `/api/expo/token` | Remove Expo push token |
 | GET | `/api/notifications` | Get all notifications |
 | POST | `/api/notifications` | Create notification |
 | POST | `/api/notifications/send` | Send notification to users |
@@ -525,6 +524,8 @@ headers: {
 ```
 
 The session token is obtained when a user logs in via `/api/auth/login`.
+
+The `/api/expo/token` endpoint is now public and does not require authentication.
 
 ---
 
