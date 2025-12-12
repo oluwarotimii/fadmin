@@ -200,6 +200,8 @@ async function processProductBatch(
         regular_price: string;
         stock_quantity: number;
         name: string;
+        manage_stock?: boolean;
+        stock_status?: string;
       };
     };
 
@@ -209,6 +211,8 @@ async function processProductBatch(
       regular_price: string;
       stock_quantity: number;
       description: string;
+      manage_stock?: boolean;
+      stock_status?: string;
     };
 
     // Separate products that need to be updated vs created
