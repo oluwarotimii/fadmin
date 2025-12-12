@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
     // Log details about each product for debugging
     busyProducts.forEach((product, index) => {
       console.log(`Product ${index + 1}:`, {
+        Code: (product as any).Code, // Your data uses 'Code' instead of 'ItemId'
         ItemId: product.ItemId,
         ItemName: product.ItemName,
         PrintName: product.PrintName,
@@ -53,6 +54,18 @@ export async function POST(request: NextRequest) {
         TotalAvailableStock: product.TotalAvailableStock
       });
     });
+
+    // Transform the data to ensure it matches the expected BusyProductData format
+    const transformedProducts: BusyProductData[] = busyProducts.map(product => ({
+      ItemId: (product as any).Code?.toString() || product.ItemId, // Use 'Code' field as ItemId
+      ItemName: product.ItemName,
+      PrintName: product.PrintName,
+      SalePrice: product.SalePrice,
+      TotalAvailableStock: product.TotalAvailableStock,
+      Category: (product as any).Category,
+      Description: (product as any).Description,
+      ImageUrl: (product as any).ImageUrl,
+    }));
 
     // Start sync log entry
     const syncLogResult = await sql`
@@ -78,9 +91,9 @@ export async function POST(request: NextRequest) {
     
     // Process products in batches to minimize API calls
     const batchSize = 10; // Process 10 products at a time
-    
-    for (let i = 0; i < busyProducts.length; i += batchSize) {
-      const batch = busyProducts.slice(i, i + batchSize);
+
+    for (let i = 0; i < transformedProducts.length; i += batchSize) {
+      const batch = transformedProducts.slice(i, i + batchSize);
       const batchResults = await processProductBatch(batch, woocommerceService);
 
       productsUpdated += batchResults.updated;
@@ -101,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // Log the sync results for debugging
     console.log("Sync completed with results:", {
-      totalProcessed: busyProducts.length,
+      totalProcessed: transformedProducts.length,
       updated: productsUpdated,
       created: productsCreated,
       failed: productsFailed
@@ -109,9 +122,9 @@ export async function POST(request: NextRequest) {
 
     const response = Response.json({
       success: true,
-      message: `Processed ${busyProducts.length} products`,
+      message: `Processed ${transformedProducts.length} products`,
       summary: {
-        total: busyProducts.length,
+        total: transformedProducts.length,
         updated: productsUpdated,
         created: productsCreated,
         failed: productsFailed
