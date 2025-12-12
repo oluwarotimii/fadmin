@@ -10,6 +10,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  let syncLogId: number | undefined;
+
   try {
     // Handle preflight for POST request
     if (request.method === "OPTIONS") {
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
     let user = null;
-    
+
     if (token) {
       user = await verifySession(token);
     }
@@ -58,8 +60,8 @@ export async function POST(request: NextRequest) {
       VALUES ('product_update', 'in_progress', ${busyProducts.length})
       RETURNING id
     `;
-    
-    const syncLogId = syncLogResult[0].id;
+
+    syncLogId = syncLogResult[0].id;
     let productsUpdated = 0;
     let productsCreated = 0;
     let productsFailed = 0;
