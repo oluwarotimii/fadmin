@@ -117,18 +117,42 @@ async function processProductBatch(
 
   // Get all existing products in one API call
   const existingProducts = await woocommerceService.getProductsBySKUs(skus);
-  const existingProductsMap = new Map<string, any>();
+
+  // Create maps for both SKU and ID lookups
+  const existingProductsBySKU = new Map<string, any>();
+  const existingProductsByID = new Map<number, any>();
 
   for (const product of existingProducts) {
-    existingProductsMap.set(product.sku, product);
+    if (product.id && product.sku) {  // Ensure both id and sku exist before mapping
+      existingProductsBySKU.set(product.sku, product);
+      existingProductsByID.set(product.id, product);
+    }
   }
 
+  // Define types for our update and creation operations
+  type ProductUpdate = {
+    id: number;
+    changes: {
+      regular_price: string;
+      stock_quantity: number;
+      name: string;
+    };
+  };
+
+  type ProductCreate = {
+    name: string;
+    sku: string;
+    regular_price: string;
+    stock_quantity: number;
+    description: string;
+  };
+
   // Separate products that need to be updated vs created
-  const productsToUpdate = [];
-  const productsToCreate = [];
+  const productsToUpdate: ProductUpdate[] = [];
+  const productsToCreate: ProductCreate[] = [];
 
   for (const busyProduct of busyProducts) {
-    const existingProduct = existingProductsMap.get(busyProduct.ItemName);
+    const existingProduct = existingProductsBySKU.get(busyProduct.ItemName);
 
     if (existingProduct) {
       // Prepare for batch update
@@ -159,7 +183,8 @@ async function processProductBatch(
 
       // Update our local database records
       for (const update of productsToUpdate) {
-        const busyProduct = busyProducts.find(p => p.ItemName === existingProductsMap.get(update.id)?.sku);
+        const updatedProduct = existingProductsByID.get(update.id);
+        const busyProduct = busyProducts.find(p => p.ItemName === updatedProduct?.sku);
         if (busyProduct) {
           await sql`
             INSERT INTO busy_products (

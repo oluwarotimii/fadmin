@@ -36,13 +36,15 @@ export async function GET(request: NextRequest) {
     let woocommerceError = null;
     let busyProductsCount = 0;
     let syncLogsCount = 0;
-    
+
     try {
       const woocommerceService = new WooCommerceService();
-      
-      // Try to fetch a simple product to test connection
-      const testProducts = await woocommerceService.makeRequest('products?per_page=1');
-      woocommerceConnected = Array.isArray(testProducts);
+
+      // Try to fetch a simple product to test connection using a public method
+      // Using getProductBySKU with a random string to test the connection
+      // This will return null if no product exists, but will test the API connection
+      const testProduct = await woocommerceService.getProductBySKU('test_connection');
+      woocommerceConnected = true; // If we get here without error, the connection works
     } catch (error: any) {
       woocommerceError = error.message;
     }
