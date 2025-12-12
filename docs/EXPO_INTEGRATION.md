@@ -1,63 +1,472 @@
-# Expo Push Notifications Integration Guide
+# Expo App Integration Guide for FemAdmin Dashboard
 
-This document explains how to integrate Expo push notifications with your mobile application and connect it with the admin dashboard.
+This comprehensive guide explains how to integrate your Expo mobile app with the FemAdmin dashboard to display carousels, trending banners, and receive push notifications.
 
-## Prerequisites
+## Base URL
 
-- Expo account and project set up
-- Expo CLI or EAS CLI installed
-- Admin dashboard deployed and accessible
+Replace `YOUR_ADMIN_DASHBOARD_URL` with your actual dashboard URL (e.g., `https://your-admin.vercel.app` or `http://localhost:3000` for local development).
 
-## Setting up Expo Push Notifications
+```typescript
+const API_BASE_URL = "YOUR_ADMIN_DASHBOARD_URL";
+```
 
-### 1. Install Required Packages in Your Expo App
+---
+
+## 1. Carousel Integration
+
+### Fetch Active Carousels
+
+The dashboard provides a **public endpoint** (no authentication required) to fetch active carousel items.
+
+#### Endpoint
+```
+GET /api/carousel/public?limit=10
+```
+
+#### Example Code
+
+```typescript
+// services/carousel.ts
+import { API_BASE_URL } from './config';
+
+export interface CarouselItem {
+  id: number;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  linkType: string;
+  linkValue: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchCarousels(limit: number = 10): Promise<CarouselItem[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/carousel/public?limit=${limit}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch carousels');
+    }
+    
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching carousels:', error);
+    throw error;
+  }
+}
+```
+
+#### Display Carousels in Your App
+
+```typescript
+// screens/HomeScreen.tsx
+import React, { useEffect, useState } from 'react';
+import { View, FlatList, Image, Text, TouchableOpacity, Dimensions, Linking } from 'react-native';
+import { fetchCarousels, CarouselItem } from '../services/carousel';
+import { useNavigation } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
+
+export default function HomeScreen() {
+  const [carousels, setCarousels] = useState<CarouselItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    loadCarousels();
+  }, []);
+
+  const loadCarousels = async () => {
+    try {
+      const items = await fetchCarousels(10);
+      setCarousels(items);
+    } catch (error) {
+      console.error('Failed to load carousels:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCarouselPress = (item: CarouselItem) => {
+    // Handle navigation based on linkType
+    switch (item.linkType) {
+      case 'product':
+        navigation.navigate('Product', { id: item.linkValue });
+        break;
+      case 'category':
+        navigation.navigate('Category', { id: item.linkValue });
+        break;
+      case 'external':
+        Linking.openURL(item.linkValue);
+        break;
+      default:
+        // No action for 'none'
+        break;
+    }
+  };
+
+  const renderCarouselItem = ({ item }: { item: CarouselItem }) => (
+    <TouchableOpacity 
+      onPress={() => handleCarouselPress(item)}
+      style={{ width: width - 40, marginHorizontal: 20 }}
+    >
+      <Image 
+        source={{ uri: item.imageUrl }} 
+        style={{ width: '100%', height: 200, borderRadius: 12 }}
+        resizeMode="cover"
+      />
+      <View style={{ padding: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.title}</Text>
+        {item.subtitle && (
+          <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+            {item.subtitle}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return <Text>Loading carousels...</Text>;
+  }
+
+  return (
+    <View>
+      <FlatList
+        data={carousels}
+        renderItem={renderCarouselItem}
+        keyExtractor={(item) => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled
+      />
+    </View>
+  );
+}
+```
+
+---
+
+## 2. Trending Banner Integration
+
+### Fetch Active Banner
+
+The dashboard provides a **public endpoint** (no authentication required) to fetch the active trending banner.
+
+#### Endpoint
+```
+GET /api/banner/public
+```
+
+#### Example Code
+
+```typescript
+// services/banner.ts
+import { API_BASE_URL } from './config';
+
+export interface BannerItem {
+  id: number;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  linkType: string;
+  linkValue: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchBanner(): Promise<BannerItem | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/banner/public`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch banner');
+    }
+    
+    // Returns null if no active banner
+    return data.data || null;
+  } catch (error) {
+    console.error('Error fetching banner:', error);
+    throw error;
+  }
+}
+```
+
+#### Display Banner in Your App
+
+```typescript
+// components/TrendingBanner.tsx
+import React, { useEffect, useState } from 'react';
+import { View, Image, Text, TouchableOpacity, Dimensions, Linking, StyleSheet } from 'react-native';
+import { fetchBanner, BannerItem } from '../services/banner';
+import { useNavigation } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
+
+export default function TrendingBanner() {
+  const [banner, setBanner] = useState<BannerItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    loadBanner();
+  }, []);
+
+  const loadBanner = async () => {
+    try {
+      const bannerData = await fetchBanner();
+      setBanner(bannerData);
+    } catch (error) {
+      console.error('Failed to load banner:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBannerPress = () => {
+    if (!banner) return;
+
+    // Handle navigation based on linkType
+    switch (banner.linkType) {
+      case 'product':
+        navigation.navigate('Product', { id: banner.linkValue });
+        break;
+      case 'category':
+        navigation.navigate('Category', { id: banner.linkValue });
+        break;
+      case 'external':
+        Linking.openURL(banner.linkValue);
+        break;
+      default:
+        // No action for 'none'
+        break;
+    }
+  };
+
+  if (loading || !banner) {
+    return null; // Don't show anything if no banner
+  }
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity 
+        onPress={handleBannerPress}
+        activeOpacity={banner.linkType === 'none' ? 1 : 0.7}
+      >
+        <Image 
+          source={{ uri: banner.imageUrl }} 
+          style={styles.image}
+          resizeMode="cover"
+        />
+        <View style={styles.overlay}>
+          <Text style={styles.title}>{banner.title}</Text>
+          {banner.subtitle && (
+            <Text style={styles.subtitle}>{banner.subtitle}</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginVertical: 16,
+  },
+  image: {
+    width: width - 32,
+    height: 150,
+    borderRadius: 12,
+    marginHorizontal: 16,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 16,
+    right: 16,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#fff',
+    marginTop: 4,
+    opacity: 0.9,
+  },
+});
+```
+
+#### Use in Home Screen
+
+```typescript
+// screens/HomeScreen.tsx
+import React from 'react';
+import { ScrollView } from 'react-native';
+import TrendingBanner from '../components/TrendingBanner';
+import CarouselSection from '../components/CarouselSection';
+
+export default function HomeScreen() {
+  return (
+    <ScrollView>
+      {/* Trending Banner at the top */}
+      <TrendingBanner />
+      
+      {/* Carousel below */}
+      <CarouselSection />
+      
+      {/* Rest of your content */}
+    </ScrollView>
+  );
+}
+```
+
+---
+
+## 3. Push Notifications Integration
+
+### Prerequisites
+
+Install required packages:
 
 ```bash
 npx expo install expo-notifications expo-device
 ```
 
-### 2. Configure app.json/app.config.js
+### Step 1: Register for Push Notifications
 
-Add notification permissions to your app configuration:
+```typescript
+// services/notifications.ts
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { API_BASE_URL } from './config';
 
-```json
-{
-  "expo": {
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "iosDisplayInForeground": true,
-          "defaultAction": "default",
-          "sounds": ["./assets/notification-sound.wav"]
-        }
-      ]
-    ]
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+export async function registerForPushNotifications() {
+  let token: string | undefined;
+
+  if (!Device.isDevice) {
+    alert('Must use physical device for Push Notifications');
+    return undefined;
+  }
+
+  // Request permissions
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    alert('Failed to get push token for push notification!');
+    return undefined;
+  }
+
+  // Get the Expo push token
+  token = (await Notifications.getExpoPushTokenAsync()).data;
+  console.log('Expo push token:', token);
+
+  // Register token with backend (no authentication required)
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/expo/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ expoPushToken: token }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to register push token');
+    }
+
+    console.log('Push token registered successfully');
+    return token;
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    throw error;
   }
 }
 ```
 
-### 3. Register for Push Notifications (React Native Component)
+### Step 2: Handle Notifications in App.tsx
 
-```javascript
-import React, { useEffect } from 'react';
-import { registerForPushNotificationsAsync, 
-         initializePushNotifications, 
-         handleNotificationResponse } from './path/to/push-notification-utils';
+```typescript
+// App.tsx
+import React, { useEffect, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotifications } from './services/notifications';
+import { useNavigation } from '@react-navigation/native';
 
 export default function App() {
+  const notificationListener = useRef<any>();
+  const responseListener = useRef<any>();
+  const navigation = useNavigation();
+
   useEffect(() => {
-    // Initialize push notifications
-    initializePushNotifications();
-    
-    // Handle notification responses
-    const unsubscribe = handleNotificationResponse();
-    
-    // Cleanup listener on unmount
-    return unsubscribe;
+    // Register for push notifications after user logs in
+    // Replace 'YOUR_AUTH_TOKEN' with actual user session token
+    const authToken = 'YOUR_AUTH_TOKEN'; // Get from your auth context/storage
+    registerForPushNotifications(authToken);
+
+    // Listen for notifications received while app is in foreground
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    // Listen for notification taps
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      console.log('Notification tapped:', data);
+
+      // Handle deep linking
+      if (data?.deepLinkType && data?.deepLinkValue) {
+        handleDeepLink(data.deepLinkType, data.deepLinkValue);
+      }
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener.current);
+      Notifications.removeNotificationSubscription(responseListener.current);
+    };
   }, []);
+
+  const handleDeepLink = (type: string, value: string) => {
+    switch (type) {
+      case 'product':
+        navigation.navigate('Product', { id: value });
+        break;
+      case 'category':
+        navigation.navigate('Category', { id: value });
+        break;
+      case 'external':
+        Linking.openURL(value);
+        break;
+      default:
+        console.log('Unknown deep link type:', type);
+    }
+  };
 
   return (
     // Your app components
@@ -65,230 +474,97 @@ export default function App() {
 }
 ```
 
-### 4. Push Notification Utility File (push-notification-utils.js)
+### Step 3: Test Push Notifications
 
-```javascript
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import axios from 'axios';
+1. **Run your Expo app** on a physical device (push notifications don't work on simulators)
+2. **The push token will be registered automatically** (no login required)
+3. **Go to your admin dashboard** at `YOUR_ADMIN_DASHBOARD_URL`
+4. **Navigate to the Notifications tab**
+5. **Create and send a notification**:
+   - Enter a title and message
+   - Optionally add an image URL
+   - Select "All Users" as recipient
+   - Choose a deep link type if needed
+   - Click "Send Notification"
 
-// Request notification permissions and get the Expo push token
-export async function registerForPushNotificationsAsync() {
-  let token;
+You should receive the notification on your device!
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+---
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
+## 4. API Endpoints Reference
 
-    if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
-      return;
-    }
+### Public Endpoints (No Auth Required)
 
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo push token:', token);
-    
-    // Register token with your backend
-    await registerTokenWithBackend(token);
-  } else {
-    alert('Must use physical device for Push Notifications');
-  }
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/carousel/public?limit=10` | Fetch active carousel items |
+| GET | `/api/banner/public` | Fetch active trending banner |
+| POST | `/api/expo/token` | Register Expo push token (NEW - no auth required) |
+| DELETE | `/api/expo/token` | Remove Expo push token (NEW - no auth required) |
 
-  return token;
+### Protected Endpoints (Auth Required)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications` | Get all notifications |
+| POST | `/api/notifications` | Create notification |
+| POST | `/api/notifications/send` | Send notification to users |
+
+---
+
+## 5. Authentication
+
+For protected endpoints, include the user's session token in the Authorization header:
+
+```typescript
+headers: {
+  'Authorization': `Bearer ${userSessionToken}`,
+  'Content-Type': 'application/json',
 }
-
-// Register the Expo push token with your backend
-export async function registerTokenWithBackend(token) {
-  try {
-    // You'll need to implement authentication in your app
-    const authToken = await getAuthToken(); // Implement this based on your auth system
-    
-    const response = await axios.post(
-      'https://your-admin-dashboard.com/api/expo/token', 
-      { expoPushToken: token },
-      { 
-        headers: { 
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    console.log('Push token registered successfully');
-    return response.data;
-  } catch (error) {
-    console.error('Error registering push token:', error);
-    throw error;
-  }
-}
-
-// Helper function to get auth token (implement based on your auth system)
-async function getAuthToken() {
-  // This is a placeholder - implement based on how you store user tokens
-  // For example, you might retrieve it from secure storage
-  // return await SecureStore.getItemAsync('authToken');
-  return null;
-}
-
-// Function to handle notification received when app is in foreground
-export function handleNotificationReceived() {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
-}
-
-// Request permissions and register token automatically
-export async function initializePushNotifications() {
-  // Handle notifications when received
-  handleNotificationReceived();
-
-  // Get the push token
-  const token = await registerForPushNotificationsAsync();
-
-  return token;
-}
-
-// Function to handle deep linking when notification is tapped
-export function handleNotificationResponse() {
-  // Add listener for when a notification is tapped
-  const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-    const data = response.notification.request.content.data;
-    console.log('Notification data:', data);
-    
-    // Handle deep linking based on notification data
-    if (data?.deepLinkType && data?.deepLinkValue) {
-      handleDeepLink(data.deepLinkType, data.deepLinkValue);
-    }
-  });
-
-  // Cleanup listener on unmount
-  return () => {
-    Notifications.removeNotificationSubscription(responseListener);
-  };
-}
-
-// Handle deep linking logic
-function handleDeepLink(type, value) {
-  // Implement navigation logic based on deep link type and value
-  // For example:
-  // if (type === 'screen') navigate(value);
-  // if (type === 'content') openContent(value);
-  console.log(`Handling deep link: ${type} -> ${value}`);
-}
-
-export default {
-  registerForPushNotificationsAsync,
-  registerTokenWithBackend,
-  initializePushNotifications,
-  handleNotificationResponse,
-};
 ```
 
-## Using the Admin Dashboard API
+The session token is obtained when a user logs in via `/api/auth/login`.
 
-### 1. Authentication
+The `/api/expo/token` endpoint is now public and does not require authentication.
 
-All API endpoints require authentication. Include the session token in the Authorization header:
+---
 
-```javascript
-const response = await fetch('/api/notifications', {
-  headers: {
-    'Authorization': `Bearer ${sessionToken}`,
-    'Content-Type': 'application/json'
-  }
-});
-```
+## 6. Testing Locally
 
-### 2. Creating a Notification
+If testing with a local development server:
 
-```javascript
-const response = await fetch('/api/notifications', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${sessionToken}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    title: 'New Update Available',
-    message: 'Check out our latest features',
-    image_url: 'https://example.com/image.jpg',
-    deep_link_type: 'screen',
-    deep_link_value: 'update-screen',
-    recipient_type: 'all' // 'all', 'specific'
-  })
-});
-```
+1. **Find your computer's local IP address**:
+   - Windows: Run `ipconfig` and look for IPv4 Address
+   - Mac/Linux: Run `ifconfig` and look for inet address
 
-### 3. Sending a Notification
+2. **Update API_BASE_URL**:
+   ```typescript
+   const API_BASE_URL = "http://192.168.1.XXX:3000"; // Replace with your IP
+   ```
 
-```javascript
-const response = await fetch('/api/notifications/send', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${sessionToken}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    notificationId: 123
-  })
-});
-```
+3. **Ensure your phone and computer are on the same network**
 
-## Error Handling
+---
 
-The API returns appropriate HTTP status codes:
+## 7. Production Deployment
 
-- `200`: Success
-- `400`: Bad request (validation error)
-- `401`: Unauthorized (invalid session)
-- `404`: Not found
-- `500`: Server error
+When deploying to production:
 
-## Testing Push Notifications
+1. **Deploy your admin dashboard** (e.g., to Vercel)
+2. **Update API_BASE_URL** in your Expo app to the production URL
+3. **Rebuild your Expo app** with the new API URL
+4. **Test thoroughly** before releasing to users
 
-You can test push notifications to a single device using the test endpoint:
+---
 
-```javascript
-const response = await fetch('/api/notifications/test', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${sessionToken}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    expoPushToken: 'ExpoPushToken[YourTokenHere]',
-    title: 'Test Notification',
-    body: 'This is a test notification',
-    data: { deepLinkType: 'test', deepLinkValue: 'value' }
-  })
-});
-```
+## Support
 
-## Troubleshooting
+For issues or questions:
+- Check the admin dashboard logs for API errors
+- Verify your database is properly configured
+- Ensure `EXPO_ACCESS_TOKEN` is set in your `.env` file
+- Test endpoints using tools like Postman or curl
 
-1. **Invalid Push Token**: Make sure push tokens have the format `ExpoPushToken[...]`
-2. **Authentication Errors**: Verify session tokens are valid and not expired
-3. **Permission Issues**: On iOS, ensure notification permissions are granted
-4. **Network Issues**: Confirm the admin dashboard is accessible from the mobile device
+---
 
-## Security Best Practices
-
-- Always use HTTPS in production
-- Validate all inputs server-side
-- Store push tokens securely
-- Implement proper session management
-- Regularly clean up expired push tokens from the database
-
-## References
-
-- [Expo Push Notifications Documentation](https://docs.expo.dev/push-notifications/overview/)
-- [Expo Server SDK Documentation](https://docs.expo.dev/push-notifications/sending-notifications/)
+**Built with ❤️ using Next.js and Expo**

@@ -1,10 +1,10 @@
 "use client"
 
-import { BellIcon, SparklesIcon, PhotoIcon } from "@heroicons/react/24/solid"
+import { BellIcon, SparklesIcon, PhotoIcon, CubeIcon } from "@heroicons/react/24/solid"
 
 interface NavTabsProps {
-  activeModule: "notifications" | "carousel" | "banner"
-  onModuleChange: (module: "notifications" | "carousel" | "banner") => void
+  activeModule: "notifications" | "carousel" | "banner" | "busy"
+  onModuleChange: (module: "notifications" | "carousel" | "banner" | "busy") => void
 }
 
 export default function NavTabs({ activeModule, onModuleChange }: NavTabsProps) {
@@ -12,6 +12,7 @@ export default function NavTabs({ activeModule, onModuleChange }: NavTabsProps) 
     { id: "notifications", label: "Push Notifications", icon: BellIcon },
     { id: "carousel", label: "Carousel", icon: SparklesIcon },
     { id: "banner", label: "Trending Banner", icon: PhotoIcon },
+    { id: "busy", label: "Busy Sync", icon: CubeIcon },
   ] as const
 
   return (

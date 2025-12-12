@@ -1,0 +1,88 @@
+## 🚀 Detailed Project Request (PR) for Next.js Synchronization Integration
+
+### PR Title: Integrate Busy Accounting Stock Monitor (BASM) into Next.js Backend for Real-time Price/Stock Sync
+
+### **Summary**
+
+This project integrates the existing **BASM Watcher Service** output directly into our Next.js backend, replacing the standalone .NET Middleware. This new Next.js API route will be responsible for receiving product updates from the Busy accounting system, executing the matching and creation logic, and securely updating the WordPress/WooCommerce platform.
+
+The goal is to achieve seamless, low-load synchronization while ensuring all new products are created in a controlled "draft" status for manual review.
+
+-----
+
+### **Goals and Rationale**
+
+| Goal | Rationale |
+| :--- | :--- |
+| **Unified Backend** | Consolidate inventory synchronization logic into the Next.js application, eliminating the need for a separate .NET Middleware application. |
+| **Automated Updates** | Automatically update prices (`SalePrice`) and stock levels (`TotalAvailableStock`) for existing WooCommerce products. |
+| **Controlled New Product Onboarding** | Automatically create new products found in Busy in **draft** status, requiring manual review before publishing, thus maintaining quality control. |
+| **Security & Efficiency** | Implement secure communication (API Key) and efficient, targeted updates to minimize load on WordPress. |
+
+-----
+
+### **Implementation Details**
+
+#### **1. Configuration Updates (BASM Watcher Service)**
+
+The configuration file of the BASM Watcher Service (`appsettings.json`) must be updated to redirect the data stream to the new Next.js endpoint:
+
+  * **File:** `BASM_WatcherService/appsettings.json`
+
+  * **Change:** Update `ApiSettings:Endpoint` to the new Next.js route:
+
+    ```json
+    "ApiSettings": {
+      "Endpoint": "https://[your-nextjs-domain.com]/api/sync/busy"
+    }
+    ```
+
+  * ***Action Required:*** Restart the BASM Windows Service (`net stop BASM`, `net start BASM`) after updating the configuration.
+
+#### **2. Next.js API Route Creation**
+
+Create a new secure API route in the Next.js backend to handle the incoming `POST` requests from the Watcher Service.
+
+  * **Route:** `/api/sync/busy` (POST method)
+  * **Security:** Implement API Key authentication by checking the `AuthKey` (set in MiddlewareSettings) sent in the request headers against a secret stored in the Next.js environment variables.
+  * **Input Validation:** Validate the received JSON array of product objects.
+
+#### **3. Synchronization Logic Implementation**
+
+The core logic must iterate through the received product data and perform a match check against existing WordPress products using the Busy `ItemName`.
+
+| Condition | Action | Busy Fields Used | WooCommerce Fields Target |
+| :--- | :--- | :--- | :--- |
+| **Product Found (Existing)** | **Update:** Update the product's price and stock in WooCommerce via the REST API. | `SalePrice`, `TotalAvailableStock` | `regular_price`, `stock_quantity` |
+| **Product Not Found (New)** | **Create (Draft):** Create a new product in WooCommerce with the status set to `"draft"`. | `PrintName`, `ItemName`, `SalePrice`, `TotalAvailableStock` | `name`, `sku`, `regular_price`, `stock_quantity`, `status: "draft"` |
+
+#### **4. Data Mapping for New Products**
+
+When creating a new product, the following mapping must be strictly followed to meet the requirement of simple creation:
+
+  * Busy `PrintName` $\rightarrow$ WooCommerce `name` (Product Title)
+  * Busy `ItemName` $\rightarrow$ WooCommerce `sku` (Used for future matching/updates)
+  * Busy `SalePrice` $\rightarrow$ WooCommerce `regular_price`
+  * Busy `TotalAvailableStock` $\rightarrow$ WooCommerce `stock_quantity`
+  * Hardcode: WooCommerce `status` $\rightarrow$ `"draft"`
+
+-----
+
+### **Testing Plan**
+
+1.  **Unit Tests:** Test the API key authentication and input validation logic.
+2.  **Integration Test (Existing Product):**
+      * Manually change the price of an existing item in Busy.
+      * Verify the Watcher Service sends the update to the Next.js API.
+      * Verify the price is successfully updated on the published WooCommerce product.
+3.  **Integration Test (New Product):**
+      * Create a brand new item in Busy.
+      * Verify the Watcher Service sends the data.
+      * Verify a new product is created in WooCommerce, and its status is set to **Draft**.
+      * Verify the product title (`PrintName`), SKU (`ItemName`), and price (`SalePrice`) are correctly mapped.
+
+-----
+
+### **Estimated Effort (T-Shirt Size)**
+
+**L (Large)** - Requires setting up a new API route, implementing complex matching and creation logic, and ensuring proper security and logging.
