@@ -291,7 +291,7 @@ export default function BusySyncModule() {
                       <TableRow key={product.id}>
                         <TableCell className="font-medium">{product.item_name}</TableCell>
                         <TableCell>{product.print_name}</TableCell>
-                        <TableCell>${product.sale_price.toFixed(2)}</TableCell>
+                        <TableCell>${Number(product.sale_price).toFixed(2)}</TableCell>
                         <TableCell>{product.total_available_stock}</TableCell>
                         <TableCell>{getStatusBadge(product.sync_status, product.total_available_stock)}</TableCell>
                         <TableCell>
@@ -427,7 +427,7 @@ export default function BusySyncModule() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Price</h4>
-                  <p>${selectedProduct.sale_price.toFixed(2)}</p>
+                  <p>${Number(selectedProduct.sale_price).toFixed(2)}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Stock</h4>
