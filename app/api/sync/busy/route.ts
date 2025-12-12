@@ -225,6 +225,8 @@ async function processProductBatch(
           changes: {
             regular_price: busyProduct.SalePrice.toString(),
             stock_quantity: busyProduct.TotalAvailableStock,
+            manage_stock: true, // Ensure stock management is enabled
+            stock_status: busyProduct.TotalAvailableStock > 0 ? 'instock' : 'outofstock', // Set stock status
             name: busyProduct.PrintName, // Update name in case it changed
           }
         });
@@ -235,6 +237,8 @@ async function processProductBatch(
           sku: busyProduct.ItemName,
           regular_price: busyProduct.SalePrice.toString(),
           stock_quantity: busyProduct.TotalAvailableStock,
+          manage_stock: true, // Ensure stock management is enabled
+          stock_status: busyProduct.TotalAvailableStock > 0 ? 'instock' : 'outofstock', // Set stock status
           description: busyProduct.Description || '',
         });
       }
@@ -266,7 +270,7 @@ async function processProductBatch(
                   total_available_stock = ${busyProduct.TotalAvailableStock},
                   woocommerce_product_id = ${update.id},
                   is_synced = ${true},
-                  sync_status = 'synced',
+                  sync_status = ${busyProduct.TotalAvailableStock > 0 ? 'synced' : 'out_of_stock'},
                   last_sync_at = NOW()
                 WHERE busy_item_id = ${busyProduct.ItemId}
               `;
@@ -292,7 +296,7 @@ async function processProductBatch(
                   ${busyProduct.TotalAvailableStock},
                   ${update.id},
                   ${true},
-                  'synced',
+                  ${busyProduct.TotalAvailableStock > 0 ? 'synced' : 'out_of_stock'},
                   NOW()
                 )
               `;
@@ -332,7 +336,7 @@ async function processProductBatch(
                   total_available_stock = ${busyProduct.TotalAvailableStock},
                   woocommerce_product_id = ${createResults.create[i].id},
                   is_synced = ${true},
-                  sync_status = 'draft',
+                  sync_status = ${busyProduct.TotalAvailableStock > 0 ? 'draft' : 'out_of_stock'},
                   last_sync_at = NOW()
                 WHERE busy_item_id = ${busyProduct.ItemId}
               `;
@@ -358,7 +362,7 @@ async function processProductBatch(
                   ${busyProduct.TotalAvailableStock},
                   ${createResults.create[i].id},
                   ${true},
-                  'draft',
+                  ${busyProduct.TotalAvailableStock > 0 ? 'draft' : 'out_of_stock'},
                   NOW()
                 )
               `;
@@ -396,7 +400,7 @@ async function processProductBatch(
               total_available_stock = ${busyProduct.TotalAvailableStock},
               woocommerce_product_id = NULL,
               is_synced = ${false},
-              sync_status = 'pending',
+              sync_status = ${busyProduct.TotalAvailableStock > 0 ? 'pending' : 'out_of_stock'},
               last_sync_at = NOW()
             WHERE busy_item_id = ${busyProduct.ItemId}
           `;
@@ -422,7 +426,7 @@ async function processProductBatch(
               ${busyProduct.TotalAvailableStock},
               NULL, -- No WooCommerce product ID since we couldn't sync
               ${false}, -- Not synced since WooCommerce is not available
-              'pending',
+              busyProduct.TotalAvailableStock > 0 ? 'pending' : 'out_of_stock',
               NOW()
             )
           `;

@@ -141,7 +141,12 @@ export default function BusySyncModule() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, stock?: number) => {
+    // If stock is 0, always show as out of stock regardless of sync status
+    if (stock === 0) {
+      return <Badge variant="destructive">Out of Stock</Badge>;
+    }
+
     switch (status) {
       case 'synced':
         return <Badge variant="default">Synced</Badge>;
@@ -230,9 +235,9 @@ export default function BusySyncModule() {
         <Card>
           <CardHeader className="p-4">
             <CardTitle className="text-2xl">
-              {syncLogs.length > 0 ? syncLogs[0].status : 'N/A'}
+              {products.filter(p => p.total_available_stock === 0).length}
             </CardTitle>
-            <CardDescription>Last Sync Status</CardDescription>
+            <CardDescription>Out of Stock</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -253,7 +258,14 @@ export default function BusySyncModule() {
                   <CardTitle>Busy Products</CardTitle>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Last sync: {lastSync ? format(new Date(lastSync), 'MMM d, yyyy HH:mm') : 'Never'}
+                  Last sync: {lastSync ? (() => {
+                    try {
+                      return format(new Date(lastSync), 'MMM d, yyyy HH:mm');
+                    } catch (e) {
+                      console.error("Error formatting date:", e);
+                      return 'Invalid date';
+                    }
+                  })() : 'Never'}
                 </div>
               </div>
               <CardDescription>
@@ -281,11 +293,16 @@ export default function BusySyncModule() {
                         <TableCell>{product.print_name}</TableCell>
                         <TableCell>${product.sale_price.toFixed(2)}</TableCell>
                         <TableCell>{product.total_available_stock}</TableCell>
-                        <TableCell>{getStatusBadge(product.sync_status)}</TableCell>
+                        <TableCell>{getStatusBadge(product.sync_status, product.total_available_stock)}</TableCell>
                         <TableCell>
-                          {product.last_sync_at
-                            ? format(new Date(product.last_sync_at), 'MMM d, yyyy')
-                            : 'Never'}
+                          {product.last_sync_at ? (() => {
+                            try {
+                              return format(new Date(product.last_sync_at), 'MMM d, yyyy');
+                            } catch (e) {
+                              console.error("Error formatting product sync date:", e);
+                              return 'Invalid date';
+                            }
+                          })() : 'Never'}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -348,11 +365,23 @@ export default function BusySyncModule() {
                         <TableCell>{log.products_updated}</TableCell>
                         <TableCell>{log.products_created}</TableCell>
                         <TableCell>{log.products_failed}</TableCell>
-                        <TableCell>{format(new Date(log.started_at), 'MMM d, yyyy HH:mm')}</TableCell>
+                        <TableCell>{(() => {
+                          try {
+                            return format(new Date(log.started_at), 'MMM d, yyyy HH:mm');
+                          } catch (e) {
+                            console.error("Error formatting log started date:", e);
+                            return 'Invalid date';
+                          }
+                        })()}</TableCell>
                         <TableCell>
-                          {log.completed_at
-                            ? format(new Date(log.completed_at), 'MMM d, yyyy HH:mm')
-                            : '-'}
+                          {log.completed_at ? (() => {
+                            try {
+                              return format(new Date(log.completed_at), 'MMM d, yyyy HH:mm');
+                            } catch (e) {
+                              console.error("Error formatting log completed date:", e);
+                              return 'Invalid date';
+                            }
+                          })() : '-'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -406,14 +435,19 @@ export default function BusySyncModule() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Sync Status</h4>
-                  <p>{getStatusBadge(selectedProduct.sync_status)}</p>
+                  <p>{getStatusBadge(selectedProduct.sync_status, selectedProduct.total_available_stock)}</p>
                 </div>
                 <div className="col-span-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Last Sync</h4>
                   <p>
-                    {selectedProduct.last_sync_at
-                      ? format(new Date(selectedProduct.last_sync_at), 'MMM d, yyyy HH:mm:ss')
-                      : 'Never'}
+                    {selectedProduct.last_sync_at ? (() => {
+                      try {
+                        return format(new Date(selectedProduct.last_sync_at), 'MMM d, yyyy HH:mm:ss');
+                      } catch (e) {
+                        console.error("Error formatting selected product sync date:", e);
+                        return 'Invalid date';
+                      }
+                    })() : 'Never'}
                   </p>
                 </div>
               </div>
