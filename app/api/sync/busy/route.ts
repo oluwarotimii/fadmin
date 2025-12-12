@@ -250,39 +250,53 @@ async function processProductBatch(
           const updatedProduct = existingProductsByID.get(update.id);
           const busyProduct = busyProducts.find(p => p.ItemName === updatedProduct?.sku);
           if (busyProduct) {
-            await sql`
-              INSERT INTO busy_products (
-                busy_item_id,
-                item_name,
-                print_name,
-                sale_price,
-                total_available_stock,
-                woocommerce_product_id,
-                is_synced,
-                sync_status,
-                last_sync_at
-              )
-              VALUES (
-                ${busyProduct.ItemId},
-                ${busyProduct.ItemName},
-                ${busyProduct.PrintName},
-                ${busyProduct.SalePrice},
-                ${busyProduct.TotalAvailableStock},
-                ${update.id},
-                ${true},
-                'synced',
-                NOW()
-              )
-              ON CONFLICT (busy_item_id)
-              DO UPDATE SET
-                print_name = EXCLUDED.print_name,
-                sale_price = EXCLUDED.sale_price,
-                total_available_stock = EXCLUDED.total_available_stock,
-                woocommerce_product_id = EXCLUDED.woocommerce_product_id,
-                is_synced = EXCLUDED.is_synced,
-                sync_status = EXCLUDED.sync_status,
-                last_sync_at = EXCLUDED.last_sync_at
+            // Check if product already exists to decide between INSERT and UPDATE
+            const existingRecord = await sql`
+              SELECT id FROM busy_products WHERE busy_item_id = ${busyProduct.ItemId}
             `;
+
+            if (existingRecord.length > 0) {
+              // Update existing product
+              await sql`
+                UPDATE busy_products
+                SET
+                  item_name = ${busyProduct.ItemName},
+                  print_name = ${busyProduct.PrintName},
+                  sale_price = ${busyProduct.SalePrice},
+                  total_available_stock = ${busyProduct.TotalAvailableStock},
+                  woocommerce_product_id = ${update.id},
+                  is_synced = ${true},
+                  sync_status = 'synced',
+                  last_sync_at = NOW()
+                WHERE busy_item_id = ${busyProduct.ItemId}
+              `;
+            } else {
+              // Insert new product
+              await sql`
+                INSERT INTO busy_products (
+                  busy_item_id,
+                  item_name,
+                  print_name,
+                  sale_price,
+                  total_available_stock,
+                  woocommerce_product_id,
+                  is_synced,
+                  sync_status,
+                  last_sync_at
+                )
+                VALUES (
+                  ${busyProduct.ItemId},
+                  ${busyProduct.ItemName},
+                  ${busyProduct.PrintName},
+                  ${busyProduct.SalePrice},
+                  ${busyProduct.TotalAvailableStock},
+                  ${update.id},
+                  ${true},
+                  'synced',
+                  NOW()
+                )
+              `;
+            }
           }
         }
 
@@ -302,39 +316,53 @@ async function processProductBatch(
         for (let i = 0; i < productsToCreate.length; i++) {
           const busyProduct = busyProducts.find(p => p.ItemName === productsToCreate[i].sku);
           if (busyProduct && createResults.create[i]?.id) {
-            await sql`
-              INSERT INTO busy_products (
-                busy_item_id,
-                item_name,
-                print_name,
-                sale_price,
-                total_available_stock,
-                woocommerce_product_id,
-                is_synced,
-                sync_status,
-                last_sync_at
-              )
-              VALUES (
-                ${busyProduct.ItemId},
-                ${busyProduct.ItemName},
-                ${busyProduct.PrintName},
-                ${busyProduct.SalePrice},
-                ${busyProduct.TotalAvailableStock},
-                ${createResults.create[i].id},
-                ${true},
-                'draft',
-                NOW()
-              )
-              ON CONFLICT (busy_item_id)
-              DO UPDATE SET
-                print_name = EXCLUDED.print_name,
-                sale_price = EXCLUDED.sale_price,
-                total_available_stock = EXCLUDED.total_available_stock,
-                woocommerce_product_id = EXCLUDED.woocommerce_product_id,
-                is_synced = EXCLUDED.is_synced,
-                sync_status = EXCLUDED.sync_status,
-                last_sync_at = EXCLUDED.last_sync_at
+            // Check if product already exists to decide between INSERT and UPDATE
+            const existingRecord = await sql`
+              SELECT id FROM busy_products WHERE busy_item_id = ${busyProduct.ItemId}
             `;
+
+            if (existingRecord.length > 0) {
+              // Update existing product
+              await sql`
+                UPDATE busy_products
+                SET
+                  item_name = ${busyProduct.ItemName},
+                  print_name = ${busyProduct.PrintName},
+                  sale_price = ${busyProduct.SalePrice},
+                  total_available_stock = ${busyProduct.TotalAvailableStock},
+                  woocommerce_product_id = ${createResults.create[i].id},
+                  is_synced = ${true},
+                  sync_status = 'draft',
+                  last_sync_at = NOW()
+                WHERE busy_item_id = ${busyProduct.ItemId}
+              `;
+            } else {
+              // Insert new product
+              await sql`
+                INSERT INTO busy_products (
+                  busy_item_id,
+                  item_name,
+                  print_name,
+                  sale_price,
+                  total_available_stock,
+                  woocommerce_product_id,
+                  is_synced,
+                  sync_status,
+                  last_sync_at
+                )
+                VALUES (
+                  ${busyProduct.ItemId},
+                  ${busyProduct.ItemName},
+                  ${busyProduct.PrintName},
+                  ${busyProduct.SalePrice},
+                  ${busyProduct.TotalAvailableStock},
+                  ${createResults.create[i].id},
+                  ${true},
+                  'draft',
+                  NOW()
+                )
+              `;
+            }
           }
         }
 
@@ -351,39 +379,54 @@ async function processProductBatch(
 
     for (const busyProduct of busyProducts) {
       try {
-        await sql`
-          INSERT INTO busy_products (
-            busy_item_id,
-            item_name,
-            print_name,
-            sale_price,
-            total_available_stock,
-            woocommerce_product_id,
-            is_synced,
-            sync_status,
-            last_sync_at
-          )
-          VALUES (
-            ${busyProduct.ItemId},
-            ${busyProduct.ItemName},
-            ${busyProduct.PrintName},
-            ${busyProduct.SalePrice},
-            ${busyProduct.TotalAvailableStock},
-            NULL, -- No WooCommerce product ID since we couldn't sync
-            ${false}, -- Not synced since WooCommerce is not available
-            'pending',
-            NOW()
-          )
-          ON CONFLICT (busy_item_id)
-          DO UPDATE SET
-            print_name = EXCLUDED.print_name,
-            sale_price = EXCLUDED.sale_price,
-            total_available_stock = EXCLUDED.total_available_stock,
-            woocommerce_product_id = EXCLUDED.woocommerce_product_id,
-            is_synced = EXCLUDED.is_synced,
-            sync_status = EXCLUDED.sync_status,
-            last_sync_at = EXCLUDED.last_sync_at
+        // Use a standard INSERT that will fail if the record already exists,
+        // or create an upsert approach without ON CONFLICT if constraint doesn't exist
+        const existingProduct = await sql`
+          SELECT id FROM busy_products WHERE busy_item_id = ${busyProduct.ItemId}
         `;
+
+        if (existingProduct.length > 0) {
+          // Update existing product
+          await sql`
+            UPDATE busy_products
+            SET
+              item_name = ${busyProduct.ItemName},
+              print_name = ${busyProduct.PrintName},
+              sale_price = ${busyProduct.SalePrice},
+              total_available_stock = ${busyProduct.TotalAvailableStock},
+              woocommerce_product_id = NULL,
+              is_synced = ${false},
+              sync_status = 'pending',
+              last_sync_at = NOW()
+            WHERE busy_item_id = ${busyProduct.ItemId}
+          `;
+        } else {
+          // Insert new product
+          await sql`
+            INSERT INTO busy_products (
+              busy_item_id,
+              item_name,
+              print_name,
+              sale_price,
+              total_available_stock,
+              woocommerce_product_id,
+              is_synced,
+              sync_status,
+              last_sync_at
+            )
+            VALUES (
+              ${busyProduct.ItemId},
+              ${busyProduct.ItemName},
+              ${busyProduct.PrintName},
+              ${busyProduct.SalePrice},
+              ${busyProduct.TotalAvailableStock},
+              NULL, -- No WooCommerce product ID since we couldn't sync
+              ${false}, -- Not synced since WooCommerce is not available
+              'pending',
+              NOW()
+            )
+          `;
+        }
         created++;
       } catch (dbError) {
         console.error('Database insert/update failed for product:', busyProduct, dbError);
