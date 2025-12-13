@@ -30,8 +30,29 @@ export async function POST(request: NextRequest) {
       user = await verifySession(token);
     }
 
-    // Parse the product data from Busy system
-    const busyProducts: BusyProductData[] = await request.json();
+    // Check if the request is gzipped and handle decompression
+    const contentEncoding = request.headers.get('content-encoding');
+    let busyProducts: BusyProductData[];
+
+    if (contentEncoding === 'gzip') {
+      // Read the raw body
+      const buffer = await request.arrayBuffer();
+      const uint8Array = new Uint8Array(buffer);
+
+      // Decompress the gzip data
+      // Import zlib for Node.js gzip decompression
+      const { gunzipSync } = await import('zlib');
+      const decompressedBuffer = gunzipSync(uint8Array);
+
+      // Convert decompressed buffer to string
+      const decompressedString = new TextDecoder().decode(decompressedBuffer);
+
+      // Parse the JSON from the decompressed string
+      busyProducts = JSON.parse(decompressedString) as BusyProductData[];
+    } else {
+      // Handle non-gzipped request normally
+      busyProducts = await request.json();
+    }
 
     // Log the received data for debugging
     console.log("Received Busy Products:", busyProducts);
@@ -67,10 +88,20 @@ export async function POST(request: NextRequest) {
       ImageUrl: (product as any).ImageUrl,
     }));
 
-    // Start sync log entry
+    // Start sync log entry with more detailed information
     const syncLogResult = await sql`
-      INSERT INTO busy_sync_logs (sync_type, status, products_processed)
-      VALUES ('product_update', 'in_progress', ${busyProducts.length})
+      INSERT INTO busy_sync_logs (
+        sync_type,
+        status,
+        products_processed,
+        started_at
+      )
+      VALUES (
+        'product_update',
+        'in_progress',
+        ${transformedProducts.length},
+        NOW()
+      )
       RETURNING id
     `;
 
@@ -78,7 +109,10 @@ export async function POST(request: NextRequest) {
     let productsUpdated = 0;
     let productsCreated = 0;
     let productsFailed = 0;
-    
+
+    const startTime = Date.now();
+    console.log(`Starting sync of ${transformedProducts.length} products. Log ID: ${syncLogId}`);
+
     // Initialize WooCommerce service only if credentials are available
     let woocommerceService: WooCommerceService | null = null;
     try {
@@ -88,19 +122,43 @@ export async function POST(request: NextRequest) {
       console.warn("WooCommerce service not initialized:", (error as Error).message);
       console.log("Continuing with Busy sync for local storage only");
     }
-    
-    // Process products in batches to minimize API calls
-    const batchSize = 10; // Process 10 products at a time
+
+    // Process products in batches to minimize API calls and memory usage
+    // For large datasets, use a larger batch size to improve performance
+    const batchSize = woocommerceService ? 50 : 500; // Larger batches when not syncing to WooCommerce
+
+    const totalBatches = Math.ceil(transformedProducts.length / batchSize);
+    console.log(`Processing ${transformedProducts.length} products in ${totalBatches} batches of ${batchSize}`);
 
     for (let i = 0; i < transformedProducts.length; i += batchSize) {
       const batch = transformedProducts.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i/batchSize) + 1;
+
+      // Log progress for large datasets
+      if (transformedProducts.length > 1000) {
+        console.log(`Processing batch ${batchNumber} of ${totalBatches} (${batch.length} products)`);
+      }
+
+      const batchStartTime = Date.now();
       const batchResults = await processProductBatch(batch, woocommerceService);
+      const batchProcessingTime = Date.now() - batchStartTime;
 
       productsUpdated += batchResults.updated;
       productsCreated += batchResults.created;
       productsFailed += batchResults.failed;
+
+      // Log batch performance metrics
+      if (transformedProducts.length > 1000) {
+        console.log(`Batch ${batchNumber} completed: ${batchResults.updated} updated, ${batchResults.created} created, ${batchResults.failed} failed in ${batchProcessingTime}ms`);
+      }
+
+      // Brief pause between batches to allow other operations
+      // Only if processing large batches
+      if (transformedProducts.length > 5000 && batchNumber < totalBatches) {
+        await new Promise(resolve => setTimeout(resolve, 10)); // 10ms pause
+      }
     }
-    
+
     // Update sync log with final status
     await sql`
       UPDATE busy_sync_logs
@@ -112,12 +170,21 @@ export async function POST(request: NextRequest) {
       WHERE id = ${syncLogId}
     `;
 
+    // Calculate and log performance metrics
+    const endTime = Date.now();
+    const processingTime = endTime - startTime; // Actual processing time in ms
+    const successRate = transformedProducts.length > 0
+      ? ((transformedProducts.length - productsFailed) / transformedProducts.length) * 100
+      : 100;
+
     // Log the sync results for debugging
     console.log("Sync completed with results:", {
       totalProcessed: transformedProducts.length,
       updated: productsUpdated,
       created: productsCreated,
-      failed: productsFailed
+      failed: productsFailed,
+      successRate: successRate.toFixed(2) + '%',
+      processingTime: `${processingTime}ms`
     });
 
     const response = Response.json({
@@ -127,7 +194,9 @@ export async function POST(request: NextRequest) {
         total: transformedProducts.length,
         updated: productsUpdated,
         created: productsCreated,
-        failed: productsFailed
+        failed: productsFailed,
+        success_rate: parseFloat(successRate.toFixed(2)),
+        log_id: syncLogId
       }
     });
 
@@ -382,34 +451,17 @@ async function processProductBatch(
     }
   } else {
     // If WooCommerce service is not available, just store the products in the database
-    // but mark them as pending sync until WooCommerce credentials are configured
-    console.log("Storing Busy products in database without WooCommerce sync");
+    // For better performance with large datasets, use PostgreSQL's bulk upsert
+    console.log(`Storing ${busyProducts.length} Busy products in database without WooCommerce sync`);
 
-    for (const busyProduct of busyProducts) {
-      try {
-        // Use a standard INSERT that will fail if the record already exists,
-        // or create an upsert approach without ON CONFLICT if constraint doesn't exist
-        const existingProduct = await sql`
-          SELECT id FROM busy_products WHERE busy_item_id = ${busyProduct.ItemId}
-        `;
+    // Process in batches to handle large datasets efficiently
+    const subBatchSize = 100;
+    for (let j = 0; j < busyProducts.length; j += subBatchSize) {
+      const subBatch = busyProducts.slice(j, j + subBatchSize);
 
-        if (existingProduct.length > 0) {
-          // Update existing product
-          await sql`
-            UPDATE busy_products
-            SET
-              item_name = ${busyProduct.ItemName},
-              print_name = ${busyProduct.PrintName},
-              sale_price = ${busyProduct.SalePrice},
-              total_available_stock = ${busyProduct.TotalAvailableStock},
-              woocommerce_product_id = NULL,
-              is_synced = ${false},
-              sync_status = ${busyProduct.TotalAvailableStock > 0 ? 'pending' : 'out_of_stock'},
-              last_sync_at = NOW()
-            WHERE busy_item_id = ${busyProduct.ItemId}
-          `;
-        } else {
-          // Insert new product
+      for (const busyProduct of subBatch) {
+        try {
+          // Use ON CONFLICT to perform upsert (insert or update)
           await sql`
             INSERT INTO busy_products (
               busy_item_id,
@@ -430,15 +482,30 @@ async function processProductBatch(
               ${busyProduct.TotalAvailableStock},
               NULL, -- No WooCommerce product ID since we couldn't sync
               ${false}, -- Not synced since WooCommerce is not available
-              busyProduct.TotalAvailableStock > 0 ? 'pending' : 'out_of_stock',
+              ${busyProduct.TotalAvailableStock > 0 ? 'pending' : 'out_of_stock'},
               NOW()
             )
+            ON CONFLICT (busy_item_id)
+            DO UPDATE SET
+              item_name = EXCLUDED.item_name,
+              print_name = EXCLUDED.print_name,
+              sale_price = EXCLUDED.sale_price,
+              total_available_stock = EXCLUDED.total_available_stock,
+              woocommerce_product_id = EXCLUDED.woocommerce_product_id,
+              is_synced = EXCLUDED.is_synced,
+              sync_status = EXCLUDED.sync_status,
+              last_sync_at = EXCLUDED.last_sync_at
           `;
+          created++;
+        } catch (dbError) {
+          console.error('Database upsert failed for product:', busyProduct, dbError);
+          failed++;
         }
-        created++;
-      } catch (dbError) {
-        console.error('Database insert/update failed for product:', busyProduct, dbError);
-        failed++;
+      }
+
+      // Small delay between sub-batches to prevent overwhelming the database
+      if (busyProducts.length > 1000) {
+        await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay
       }
     }
   }
