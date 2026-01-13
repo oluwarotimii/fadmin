@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link";
 import DashboardLayout from "@/components/dashboard-layout"
 import DashboardHeader from "@/components/dashboard-header"
 import PushNotificationsModule from "@/components/push-notifications-module"
 import CarouselModule from "@/components/carousel-module"
 import TrendingBannerModule from "@/components/trending-banner-module"
+import BusySyncModule from "@/components/busy-sync-module"
 import ThemeToggle from "@/components/theme-toggle"
-import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/solid"
+import { ArrowRightOnRectangleIcon, UserCircleIcon } from "@heroicons/react/24/solid"
+import { Button } from "@/components/ui/button"
 
 interface User {
   id: number
@@ -16,7 +19,7 @@ interface User {
 }
 
 export default function Home() {
-  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner">("notifications")
+  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner" | "busy">("notifications")
   const [isDark, setIsDark] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,7 +81,17 @@ export default function Home() {
     <DashboardLayout>
       <DashboardHeader activeModule={activeModule} onModuleChange={setActiveModule}>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+          <Link href="/admin/profile">
+            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+              <UserCircleIcon className="w-5 h-5" />
+              <span className="hidden sm:inline truncate max-w-[100px]">{user?.email}</span>
+            </Button>
+          </Link>
+          <Link href="/admin">
+            <Button variant="outline" size="sm">
+              Admin Panel
+            </Button>
+          </Link>
           <ThemeToggle isDark={isDark} onToggle={updateTheme} />
           <button
             onClick={handleLogout}
@@ -95,6 +108,7 @@ export default function Home() {
         {activeModule === "notifications" && <PushNotificationsModule />}
         {activeModule === "carousel" && <CarouselModule />}
         {activeModule === "banner" && <TrendingBannerModule />}
+        {activeModule === "busy" && <BusySyncModule />}
       </main>
     </DashboardLayout>
   )

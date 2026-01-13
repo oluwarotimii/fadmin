@@ -3,8 +3,8 @@ import Image from "next/image"
 import NavTabs from "@/components/nav-tabs"
 
 interface DashboardHeaderProps {
-  activeModule: "notifications" | "carousel" | "banner"
-  onModuleChange: (module: "notifications" | "carousel" | "banner") => void
+  activeModule: "notifications" | "carousel" | "banner" | "busy"
+  onModuleChange: (module: "notifications" | "carousel" | "banner" | "busy") => void
   children?: React.ReactNode
 }
 

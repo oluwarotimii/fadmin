@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
     // Verify session
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
-    
+
     if (!token) {
       return Response.json({ error: "Authorization token required" }, { status: 401 });
     }
-    
+
     const user = await verifySession(token);
     if (!user) {
       return Response.json({ error: "Invalid or expired session" }, { status: 401 });

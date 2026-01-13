@@ -18,7 +18,7 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { expoPushToken } = body;
+    const { expoPushToken, userId, deviceInfo } = body;
 
     if (!expoPushToken) {
       const response = Response.json({ error: "Expo push token is required" }, { status: 400 });
@@ -31,41 +31,32 @@ export async function POST(request: NextRequest) {
       return addAPICorsHeaders(response);
     }
 
-    // Find a system user to store all mobile app tokens (e.g., user with email 'system@mobileapp.com')
-    // If the user doesn't exist, create one
-    let systemUser = await sql`
-      SELECT id, push_tokens FROM users WHERE email = 'system@mobileapp.com'
+    // Check if the token already exists in the database
+    const existingToken = await sql`
+      SELECT id FROM expo_push_tokens WHERE expo_token = ${expoPushToken}
     `;
 
-    let userId: number;
-    let currentTokens: string[] = [];
-
-    if (systemUser.length === 0) {
-      // Create a system user to store mobile app tokens
-      const newUser = await sql`
-        INSERT INTO users (email, password_hash, push_tokens)
-        VALUES ('system@mobileapp.com', '', NULL)
-        RETURNING id, push_tokens
+    if (existingToken.length > 0) {
+      // If token exists, just update the active status and timestamps
+      await sql`
+        UPDATE expo_push_tokens 
+        SET is_active = true, last_used_at = NOW()
+        WHERE expo_token = ${expoPushToken}
       `;
-      userId = newUser[0].id;
     } else {
-      userId = systemUser[0].id;
-      if (systemUser[0].push_tokens) {
-        currentTokens = systemUser[0].push_tokens.split(',');
+      // Extract project ID from the token (first part before the first hyphen after the bracket)
+      let projectId = null;
+      const match = expoPushToken.match(/ExponentPushToken\[@([^\-]+)-/);
+      if (match && match[1]) {
+        projectId = match[1]; // This extracts the project identifier
       }
-    }
 
-    // Add the new token if it's not already in the list
-    if (!currentTokens.includes(expoPushToken)) {
-      currentTokens.push(expoPushToken);
+      // Insert the new token into the expo_push_tokens table
+      await sql`
+        INSERT INTO expo_push_tokens (user_id, expo_token, is_active, project_id, device_info)
+        VALUES (${userId || null}, ${expoPushToken}, true, ${projectId || null}, ${deviceInfo ? JSON.stringify(deviceInfo) : null})
+      `;
     }
-
-    // Update the system user's push tokens
-    await sql`
-      UPDATE users
-      SET push_tokens = ${currentTokens.length > 0 ? currentTokens.join(',') : null}
-      WHERE id = ${userId}
-    `;
 
     const response = Response.json({
       success: true,
@@ -89,35 +80,20 @@ export async function DELETE(request: NextRequest) {
       return addAPICorsHeaders(response);
     }
 
-    // Find the system user that stores mobile app tokens
-    const systemUser = await sql`
-      SELECT id, push_tokens FROM users WHERE email = 'system@mobileapp.com'
-    `;
-
-    if (!systemUser.length) {
-      const response = Response.json({ error: "No system user found" }, { status: 404 });
-      return addAPICorsHeaders(response);
-    }
-
-    let currentTokens = systemUser[0].push_tokens ? systemUser[0].push_tokens.split(',') : [];
-
-    // Remove the token if it exists in the list
-    currentTokens = currentTokens.filter((token: string) => token !== expoPushToken);
-
-    // Update the system user's push tokens
+    // Soft delete the token by setting is_active to false (you could use hard delete if preferred)
     await sql`
-      UPDATE users
-      SET push_tokens = ${currentTokens.length > 0 ? currentTokens.join(',') : null}
-      WHERE id = ${systemUser[0].id}
+      UPDATE expo_push_tokens
+      SET is_active = false
+      WHERE expo_token = ${expoPushToken}
     `;
 
     const response = Response.json({
       success: true,
-      message: "Expo push token removed successfully"
+      message: "Expo push token deactivated successfully"
     });
     return addAPICorsHeaders(response);
   } catch (error: any) {
-    console.error("Error removing Expo push token:", error);
+    console.error("Error deactivating Expo push token:", error);
     const response = Response.json({ error: error.message }, { status: 500 });
     return addAPICorsHeaders(response);
   }
