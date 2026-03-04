@@ -95,9 +95,9 @@ class BusyWebApiService {
 
       // Handle the specific BUSY XML structure
       if (result.rs && result.rs.data && Array.isArray(result.rs.data.row)) {
-        return result.rs.data.row.map(row => {
+        return result.rs.data.row.map((row: any) => {
           // Convert attributes to properties
-          const convertedRow = {};
+          const convertedRow: Record<string, any> = {};
           for (const [key, value] of Object.entries(row)) {
             // Remove the attribute prefix and convert to readable property names
             const cleanKey = key.replace('@_', '');

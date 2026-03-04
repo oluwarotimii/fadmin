@@ -76,11 +76,15 @@ export async function POST(request: NextRequest) {
         stock_quantity: stock,
         manage_stock: true,
         stock_status: stock > 0 ? 'instock' : 'outofstock',
-        status: 'draft', // Create as draft for manual review
+        status: 'draft' as const, // Create as draft for manual review
         description: `Product created from BUSY: ${busyItemCode}`
       };
 
       const createdProduct = await woocommerceService.createProduct(productData);
+
+      if (!createdProduct.id) {
+        throw new Error('Failed to create product: No ID returned');
+      }
 
       // Create a link between BUSY item and web product
       await sql`
