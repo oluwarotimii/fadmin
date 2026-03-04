@@ -59,7 +59,37 @@ export default function PushNotificationsModule() {
 
   const handleSendNotification = async (data: any) => {
     try {
-      // First, create the notification
+      let notificationId: number;
+
+      // If using specific token, send directly without creating notification first
+      if (data.recipientType === "specific_token") {
+        const sendResponse = await fetch("/api/notifications/send-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: data.title,
+            message: data.message,
+            image_url: data.imageUrl || null,
+            deep_link_type: data.deepLinkType !== "none" ? data.deepLinkType : null,
+            deep_link_value: data.deepLinkValue || null,
+            expo_token: data.expoToken,
+          }),
+        })
+
+        const sendResult = await sendResponse.json()
+
+        if (!sendResponse.ok) {
+          throw new Error(sendResult.error || "Failed to send notification")
+        }
+
+        alert(`Notification sent successfully: ${sendResult.message}`)
+        await fetchNotifications()
+        return
+      }
+
+      // For other recipient types, use the existing flow
       const createResponse = await fetch("/api/notifications", {
         method: "POST",
         headers: {
@@ -82,7 +112,7 @@ export default function PushNotificationsModule() {
         throw new Error(createResult.error || "Failed to create notification")
       }
 
-      const notificationId = createResult.data.id
+      notificationId = createResult.data.id
 
       // Then, send the notification
       const sendResponse = await fetch("/api/notifications/send", {

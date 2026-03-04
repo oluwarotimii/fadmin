@@ -19,16 +19,35 @@ export async function middleware(request: NextRequest) {
 
   // Allow login page without session
   if (request.nextUrl.pathname === "/login") {
-    if (token && (await verifySession(token))) {
-      const response = NextResponse.redirect(new URL("/", request.url));
-      return addCorsHeaders(response);
+    if (token) {
+      try {
+        const session = await verifySession(token);
+        if (session) {
+          const response = NextResponse.redirect(new URL("/", request.url));
+          return addCorsHeaders(response);
+        }
+      } catch (error) {
+        console.error("Middleware session verification error:", error);
+      }
     }
     const response = NextResponse.next();
     return addCorsHeaders(response);
   }
 
   // Check session for protected routes
-  if (!token || !(await verifySession(token))) {
+  if (!token) {
+    const response = NextResponse.redirect(new URL("/login", request.url));
+    return addCorsHeaders(response);
+  }
+
+  try {
+    const session = await verifySession(token);
+    if (!session) {
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      return addCorsHeaders(response);
+    }
+  } catch (error) {
+    console.error("Middleware session verification error:", error);
     const response = NextResponse.redirect(new URL("/login", request.url));
     return addCorsHeaders(response);
   }

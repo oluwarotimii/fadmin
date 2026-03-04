@@ -2,15 +2,29 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import FormField from "@/components/form-field"
 import FormSelect from "@/components/form-select"
+
+interface ExpoToken {
+  id: number
+  expo_token: string
+  user_id: number | null
+  user_email?: string | null
+  email?: string | null
+  device_info: any
+  last_used_at: string
+  registered_at?: string
+}
 
 interface NotificationFormProps {
   onSubmit: (data: any) => void
 }
 
 export default function NotificationForm({ onSubmit }: NotificationFormProps) {
+  const [expoTokens, setExpoTokens] = useState<ExpoToken[]>([])
+  const [loadingTokens, setLoadingTokens] = useState(false)
+
   const [formData, setFormData] = useState({
     title: "",
     message: "",
@@ -19,7 +33,27 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
     deepLinkValue: "",
     recipientType: "all",
     recipientUserId: "",
+    expoToken: "",
   })
+
+  // Fetch active expo push tokens for the dropdown
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        setLoadingTokens(true)
+        const response = await fetch("/api/expo/tokens")
+        const data = await response.json()
+        if (data.success) {
+          setExpoTokens(data.data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch expo tokens:", error)
+      } finally {
+        setLoadingTokens(false)
+      }
+    }
+    fetchTokens()
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +66,7 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
       deepLinkValue: "",
       recipientType: "all",
       recipientUserId: "",
+      expoToken: "",
     })
   }
 
@@ -71,17 +106,37 @@ export default function NotificationForm({ onSubmit }: NotificationFormProps) {
         onChange={(e) => setFormData({ ...formData, recipientType: e.target.value })}
         options={[
           { label: "All Users", value: "all" },
-          { label: "Specific User", value: "specific" },
+          { label: "Specific User (from dropdown)", value: "specific" },
+          { label: "Specific Token (paste token)", value: "specific_token" },
         ]}
       />
 
       {formData.recipientType === "specific" && (
-        <FormField
-          label="User ID"
-          type="text"
-          placeholder="Enter user ID"
+        <FormSelect
+          label="Select User"
           value={formData.recipientUserId}
           onChange={(e) => setFormData({ ...formData, recipientUserId: e.target.value })}
+          options={
+            loadingTokens
+              ? [{ label: "Loading users...", value: "", disabled: true }]
+              : expoTokens.length === 0
+                ? [{ label: "No active devices found", value: "", disabled: true }]
+                : expoTokens.map((token) => ({
+                    label: `${token.user_email || token.email || `User ${token.user_id || token.id}`} - ${token.expo_token?.substring(0, 50)}... (${token.device_info ? JSON.parse(token.device_info)?.brand || 'Device' : 'Device'})`,
+                    value: String(token.user_id || token.id),
+                  }))
+          }
+        />
+      )}
+
+      {formData.recipientType === "specific_token" && (
+        <FormField
+          label="Expo Push Token"
+          type="textarea"
+          placeholder="ExponentPushToken[@...]"
+          value={formData.expoToken}
+          onChange={(e) => setFormData({ ...formData, expoToken: e.target.value })}
+          required
         />
       )}
 

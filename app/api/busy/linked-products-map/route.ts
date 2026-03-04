@@ -1,0 +1,55 @@
+// app/api/busy/linked-products-map/route.ts
+import { NextRequest } from "next/server";
+import sql from "@/lib/db";
+import { verifySession } from "@/lib/auth";
+import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+
+export async function OPTIONS() {
+  return handleAPICorsPreflight();
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    // Handle preflight
+    if (request.method === "OPTIONS") {
+      return handleAPICorsPreflight();
+    }
+
+    // Verify session
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.split(" ")[1] || request.cookies.get("session")?.value;
+
+    if (!token) {
+      const response = Response.json({ error: "Authorization token required" }, { status: 401 });
+      return addAPICorsHeaders(response);
+    }
+
+    const user = await verifySession(token);
+    if (!user) {
+      const response = Response.json({ error: "Invalid or expired session" }, { status: 401 });
+      return addAPICorsHeaders(response);
+    }
+
+    // Get all linked products from the mapping table
+    const linkedProductsResult = await sql`
+      SELECT busy_item_code FROM product_link_mapping
+    `;
+
+    // Create a map of busy_item_code -> true for quick lookup
+    const linkedProductsMap: Record<string, boolean> = {};
+    linkedProductsResult.forEach((row: any) => {
+      linkedProductsMap[row.busy_item_code] = true;
+    });
+
+    const response = Response.json({
+      success: true,
+      data: linkedProductsMap
+    });
+
+    return addAPICorsHeaders(response);
+  } catch (error: any) {
+    console.error("Error fetching linked products map:", error);
+    const response = Response.json({ error: error.message }, { status: 500 });
+    return addAPICorsHeaders(response);
+  }
+}

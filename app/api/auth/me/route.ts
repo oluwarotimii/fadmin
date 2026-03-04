@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { verifySession } from "@/lib/auth"
 import { cookies } from "next/headers"
 import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors"
@@ -6,7 +7,7 @@ export async function OPTIONS() {
   return handleAPICorsPreflight();
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Handle preflight for GET request
     if (request.method === "OPTIONS") {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const cookieStore = await cookies()
-    const token = cookieStore.get("session")?.value
+    const token = request.headers.get("authorization")?.split(" ")[1] || cookieStore.get("session")?.value
 
     if (!token) {
       const response = Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
     const response = Response.json(user);
     return addAPICorsHeaders(response);
   } catch (error: any) {
+    console.error("/api/auth/me error:", error);
     const response = Response.json({ error: error.message }, { status: 500 });
     return addAPICorsHeaders(response);
   }

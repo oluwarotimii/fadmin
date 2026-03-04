@@ -6,7 +6,7 @@ interface FormSelectProps {
   label: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
-  options: Array<{ label: string; value: string }>
+  options: Array<{ label: string; value: string; disabled?: boolean }>
 }
 
 export default function FormSelect({ label, value, onChange, options }: FormSelectProps) {
@@ -19,7 +19,7 @@ export default function FormSelect({ label, value, onChange, options }: FormSele
         className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}

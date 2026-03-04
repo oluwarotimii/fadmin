@@ -101,15 +101,20 @@ export async function loginUser(email: string, password: string) {
 
 // Verify session token
 export async function verifySession(token: string) {
-  const result = await sql`SELECT user_id FROM sessions WHERE token = ${token} AND expires_at > NOW()`;
+  try {
+    const result = await sql`SELECT user_id FROM sessions WHERE token = ${token} AND expires_at > NOW()`;
 
-  if (!result.length) {
-    return null;
+    if (!result.length) {
+      return null;
+    }
+
+    const session = result[0];
+    const user = await sql`SELECT id, email FROM users WHERE id = ${session.user_id}`;
+    return user[0];
+  } catch (error) {
+    console.error("verifySession error:", error);
+    throw error;
   }
-
-  const session = result[0];
-  const user = await sql`SELECT id, email FROM users WHERE id = ${session.user_id}`;
-  return user[0];
 }
 
 // Logout user

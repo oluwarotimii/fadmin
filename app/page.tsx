@@ -9,6 +9,8 @@ import PushNotificationsModule from "@/components/push-notifications-module"
 import CarouselModule from "@/components/carousel-module"
 import TrendingBannerModule from "@/components/trending-banner-module"
 import BusySyncModule from "@/components/busy-sync-module"
+import BusyWebApiModule from "@/components/busy-web-api-module"
+import DeepLinkTestModule from "@/components/deep-link-test-module"
 import ThemeToggle from "@/components/theme-toggle"
 import { ArrowRightOnRectangleIcon, UserCircleIcon } from "@heroicons/react/24/solid"
 import { Button } from "@/components/ui/button"
@@ -19,7 +21,7 @@ interface User {
 }
 
 export default function Home() {
-  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner" | "busy">("notifications")
+  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner" | "busy-web-api" | "test-deep-link">("notifications")
   const [isDark, setIsDark] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -108,7 +110,10 @@ export default function Home() {
         {activeModule === "notifications" && <PushNotificationsModule />}
         {activeModule === "carousel" && <CarouselModule />}
         {activeModule === "banner" && <TrendingBannerModule />}
-        {activeModule === "busy" && <BusySyncModule />}
+        {activeModule === "test-deep-link" && <DeepLinkTestModule />}
+        {/* Legacy Busy Sync Module - Commented out as per requirements */}
+        {/* {activeModule === "busy" && <BusySyncModule />} */}
+        {activeModule === "busy-web-api" && <BusyWebApiModule />}
       </main>
     </DashboardLayout>
   )
