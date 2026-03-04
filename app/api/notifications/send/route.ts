@@ -63,48 +63,37 @@ export async function POST(request: NextRequest) {
     let pushTokens: string[] = [];
 
     if (notification.recipient_type === 'all') {
-      // Fetch all active Expo push tokens from the dedicated table
-      const allTokensResult = await sql`
-        SELECT expo_token FROM expo_push_tokens WHERE is_active = true
+      // Fetch Expo push tokens from the system user (for mobile app tokens)
+      const systemUserResult = await sql`
+        SELECT push_tokens FROM users WHERE email = 'system@mobileapp.com'
       `;
-      pushTokens = allTokensResult.map(row => row.expo_token);
+      if (systemUserResult.length > 0 && systemUserResult[0].push_tokens) {
+        pushTokens = systemUserResult[0].push_tokens.split(',');
+      }
     } else if (notification.recipient_type === 'specific' && notification.recipient_user_id) {
       // Fetch push tokens for specific user
       const tokenResult = await sql`
-        SELECT expo_token FROM expo_push_tokens 
-        WHERE user_id = ${notification.recipient_user_id} AND is_active = true
+        SELECT push_tokens FROM users WHERE id = ${notification.recipient_user_id}
       `;
-      pushTokens = tokenResult.map(row => row.expo_token);
-    } else if (notification.recipient_type === 'project_specific') {
-      // Fetch only tokens that belong to the same project as the current access token
-      // Extract project ID from the current access token in environment
-      const currentProjectId = process.env.EXPO_PROJECT_ID; // You'll need to add this to env
-      if (currentProjectId) {
-        const tokenResult = await sql`
-          SELECT expo_token FROM expo_push_tokens 
-          WHERE project_id = ${currentProjectId} AND is_active = true
-        `;
-        pushTokens = tokenResult.map(row => row.expo_token);
-      } else {
-        // Fallback to all active tokens if project ID is not set
-        const allTokensResult = await sql`
-          SELECT expo_token FROM expo_push_tokens WHERE is_active = true
-        `;
-        pushTokens = allTokensResult.map(row => row.expo_token);
+      if (tokenResult.length > 0 && tokenResult[0].push_tokens) {
+        pushTokens = tokenResult[0].push_tokens.split(',');
       }
     } else {
-      // Default behavior: fetch all active tokens
-      const allTokensResult = await sql`
-        SELECT expo_token FROM expo_push_tokens WHERE is_active = true
+      // Handle custom groups or other recipient types as needed
+      // For now, we'll just fetch tokens from system user
+      const systemUserResult = await sql`
+        SELECT push_tokens FROM users WHERE email = 'system@mobileapp.com'
       `;
-      pushTokens = allTokensResult.map(row => row.expo_token);
+      if (systemUserResult.length > 0 && systemUserResult[0].push_tokens) {
+        pushTokens = systemUserResult[0].push_tokens.split(',');
+      }
     }
 
     if (!pushTokens || pushTokens.length === 0) {
       const response = Response.json({
-        error: "No active Expo push tokens found for recipients",
+        error: "No Expo push tokens found for recipients",
         success: true,
-        message: "Notification saved but no active recipients found to send to"
+        message: "Notification saved but no recipients found to send to"
       });
       return addAPICorsHeaders(response);
     }
@@ -121,98 +110,75 @@ export async function POST(request: NextRequest) {
       return addAPICorsHeaders(response);
     }
 
-    // Group tokens by project ID to avoid the "same project" error
-    const tokensByProject: Record<string, string[]> = {};
-    
-    for (const token of validPushTokens) {
-      // Extract project ID from token
-      const match = token.match(/ExponentPushToken\[@([^\-]+)-/);
-      const projectId = match ? match[1] : 'unknown';
-      
-      if (!tokensByProject[projectId]) {
-        tokensByProject[projectId] = [];
-      }
-      tokensByProject[projectId].push(token);
+    // Create push notification messages
+    const messages = [];
+    for (const pushToken of validPushTokens) {
+      // Construct the message with the notification's data
+      messages.push({
+        to: pushToken,
+        sound: 'default',
+        title: notification.title,
+        body: notification.message,
+        data: {
+          deepLinkType: notification.deep_link_type,
+          deepLinkValue: notification.deep_link_value,
+          notificationId: notification.id
+        },
+      });
     }
 
-    // Send notifications separately for each project ID
-    let totalSent = 0;
-    const allTickets = [];
+    // Send push notifications
+    const chunks = expo.chunkPushNotifications(messages);
+    const tickets = [];
 
-    for (const [projectId, projectTokens] of Object.entries(tokensByProject)) {
-      // Create push notification messages for this project
-      const messages = [];
-      for (const pushToken of projectTokens) {
-        messages.push({
-          to: pushToken,
-          sound: 'default',
-          title: notification.title,
-          body: notification.message,
-          data: {
-            deepLinkType: notification.deep_link_type,
-            deepLinkValue: notification.deep_link_value,
-            notificationId: notification.id
-          },
-        });
-      }
+    // Send the chunks
+    for (const [chunkIndex, chunk] of chunks.entries()) {
+      try {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
 
-      // Send push notifications for this project
-      const chunks = expo.chunkPushNotifications(messages);
-      const tickets = [];
+        // Save notification history for each token in the chunk
+        for (let i = 0; i < chunk.length; i++) {
+          const pushToken = chunk[i].to;
+          const ticket = ticketChunk[i];
 
-      // Send the chunks
-      for (const [chunkIndex, chunk] of chunks.entries()) {
-        try {
-          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-          tickets.push(...ticketChunk);
-
-          // Save notification history for each token in the chunk
-          for (let i = 0; i < chunk.length; i++) {
-            const pushToken = chunk[i].to;
-            const ticket = ticketChunk[i];
-
-            await sql`
-              INSERT INTO notification_history (
-                notification_id,
-                push_token,
-                delivery_status,
-                error_message
-              ) VALUES (
-                ${notificationId},
-                ${pushToken},
-                ${ticket.status || 'pending'},
-                ${(ticket as any).details?.errorMessage || (ticket as any).message || null}
-              )
-            `;
-          }
-          
-          totalSent += projectTokens.length;
-        } catch (error) {
-          console.error(`Error sending push notifications for project ${projectId}:`, error);
-
-          // Log failed notifications in history
-          for (const message of chunk) {
-            await sql`
-              INSERT INTO notification_history (
-                notification_id,
-                push_token,
-                delivery_status,
-                error_message
-              ) VALUES (
-                ${notificationId},
-                ${message.to},
-                'error',
-                ${(error as Error).message || 'Failed to send'}
-              )
-            `;
-          }
-
-          const response = Response.json({ error: "Failed to send some notifications for project " + projectId }, { status: 500 });
-          return addAPICorsHeaders(response);
+          await sql`
+            INSERT INTO notification_history (
+              notification_id,
+              push_token,
+              delivery_status,
+              error_message
+            ) VALUES (
+              ${notificationId},
+              ${pushToken},
+              ${ticket.status || 'pending'},
+              ${(ticket as any).details?.errorMessage || (ticket as any).message || null}
+            )
+          `;
         }
+      } catch (error) {
+        console.error("Error sending push notifications chunk:", error);
+
+        // Log failed notifications in history
+        for (const message of chunk) {
+          await sql`
+            INSERT INTO notification_history (
+              notification_id,
+              push_token,
+              delivery_status,
+              error_message
+            ) VALUES (
+              ${notificationId},
+              ${message.to},
+              'error',
+              ${(error as Error).message || 'Failed to send'}
+            )
+          `;
+        }
+
+        const response = Response.json({ error: "Failed to send some notifications" }, { status: 500 });
+        return addAPICorsHeaders(response);
       }
-      
-      allTickets.push(...tickets);
     }
 
     // Update notification status to 'sent'
@@ -224,9 +190,8 @@ export async function POST(request: NextRequest) {
 
     const response = Response.json({
       success: true,
-      message: `Successfully sent ${totalSent} notifications across ${Object.keys(tokensByProject).length} project(s)`,
-      tickets: allTickets,
-      projectCount: Object.keys(tokensByProject).length
+      message: `Successfully sent ${validPushTokens.length} notifications`,
+      tickets: tickets
     });
     return addAPICorsHeaders(response);
   } catch (error: any) {
