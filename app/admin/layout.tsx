@@ -67,6 +67,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </Button>
           </Link>
 
+          <Link href="/admin/referrals">
+            <Button variant="ghost" className="w-full justify-start">
+              Referral System
+            </Button>
+          </Link>
+
           <Link href="/admin/profile">
             <Button variant="ghost" className="w-full justify-start">
               Profile Settings

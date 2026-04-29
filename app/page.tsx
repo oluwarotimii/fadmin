@@ -8,6 +8,7 @@ import DashboardHeader from "@/components/dashboard-header"
 import PushNotificationsModule from "@/components/push-notifications-module"
 import CarouselModule from "@/components/carousel-module"
 import TrendingBannerModule from "@/components/trending-banner-module"
+import ReferralModule from "@/components/referral-module"
 import BusySyncModule from "@/components/busy-sync-module"
 import BusyWebApiModule from "@/components/busy-web-api-module"
 import DeepLinkTestModule from "@/components/deep-link-test-module"
@@ -21,7 +22,7 @@ interface User {
 }
 
 export default function Home() {
-  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner" | "busy-web-api" | "test-deep-link">("notifications")
+  const [activeModule, setActiveModule] = useState<"notifications" | "carousel" | "banner" | "busy-web-api" | "test-deep-link" | "referral">("notifications")
   const [isDark, setIsDark] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,6 +111,7 @@ export default function Home() {
         {activeModule === "notifications" && <PushNotificationsModule />}
         {activeModule === "carousel" && <CarouselModule />}
         {activeModule === "banner" && <TrendingBannerModule />}
+        {activeModule === "referral" && <ReferralModule />}
         {activeModule === "test-deep-link" && <DeepLinkTestModule />}
         {/* Legacy Busy Sync Module - Commented out as per requirements */}
         {/* {activeModule === "busy" && <BusySyncModule />} */}
