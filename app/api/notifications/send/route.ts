@@ -3,6 +3,7 @@ import { Expo } from 'expo-server-sdk';
 import sql from "@/lib/db";
 import { verifySession } from "@/lib/auth";
 import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+import { buildExpoDataPayload } from "@/lib/push-payload";
 
 export async function OPTIONS() {
   return handleAPICorsPreflight();
@@ -119,11 +120,11 @@ export async function POST(request: NextRequest) {
         sound: 'default',
         title: notification.title,
         body: notification.message,
-        data: {
+        data: buildExpoDataPayload({
+          notificationId: notification.id,
           deepLinkType: notification.deep_link_type,
           deepLinkValue: notification.deep_link_value,
-          notificationId: notification.id
-        },
+        }),
       });
     }
 

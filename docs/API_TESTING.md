@@ -145,6 +145,53 @@ curl -X POST http://localhost:3000/api/notifications \
 }
 ```
 
+### Deep Link Types (including Awoof)
+
+Supported `deep_link_type` values include:
+
+- `product`
+- `category`
+- `external`
+- `page` (for app pages like `awoof`, with optional page-specific actions)
+
+For Awoof, set `deep_link_type` to `page` and store the page/action in `deep_link_value` as JSON (string).
+
+Open Awoof feed only:
+
+```json
+{
+  "deep_link_type": "page",
+  "deep_link_value": "{\"page\":\"awoof\",\"awoofAction\":{\"actionType\":\"open_feed\"}}"
+}
+```
+
+Prefill cart + open cart:
+
+```json
+{
+  "deep_link_type": "page",
+  "deep_link_value": "{\"page\":\"awoof\",\"awoofAction\":{\"actionType\":\"open_cart\",\"replaceCart\":true,\"items\":[{\"productId\":123,\"quantity\":2},{\"productId\":456,\"quantity\":1}]}}"
+}
+```
+
+Prefill cart + go straight to checkout (cart checkout):
+
+```json
+{
+  "deep_link_type": "page",
+  "deep_link_value": "{\"page\":\"awoof\",\"awoofAction\":{\"actionType\":\"checkout\",\"replaceCart\":true,\"items\":[{\"productId\":123,\"quantity\":2},{\"productId\":456,\"quantity\":1}]}}"
+}
+```
+
+Checkout a particular product (single-item checkout):
+
+```json
+{
+  "deep_link_type": "page",
+  "deep_link_value": "{\"page\":\"awoof\",\"awoofAction\":{\"actionType\":\"checkout_product\",\"productId\":123}}"
+}
+```
+
 ### Send Notification
 
 ```bash

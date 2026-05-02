@@ -3,6 +3,7 @@ import { Expo } from 'expo-server-sdk';
 import sql from "@/lib/db";
 import { verifySession } from "@/lib/auth";
 import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+import { buildExpoDataPayload } from "@/lib/push-payload";
 
 /**
  * Test endpoint for deep link push notifications
@@ -82,11 +83,11 @@ export async function POST(request: NextRequest) {
       sound: 'default' as const,
       title: title,
       body: message,
-      data: {
+      data: buildExpoDataPayload({
+        notificationId: `test-${Date.now()}`,
         deepLinkType: deepLinkType || "none",
         deepLinkValue: deepLinkValue || "",
-        notificationId: `test-${Date.now()}`,
-      },
+      }),
     };
 
     console.log("Sending test notification with payload:", JSON.stringify(notificationMessage, null, 2));

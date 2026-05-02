@@ -3,6 +3,7 @@ import { Expo } from 'expo-server-sdk';
 import sql from "@/lib/db";
 import { verifySession } from "@/lib/auth";
 import { handleAPICorsPreflight, addAPICorsHeaders } from "@/lib/api-cors";
+import { buildExpoDataPayload } from "@/lib/push-payload";
 
 export async function OPTIONS() {
   return handleAPICorsPreflight();
@@ -59,10 +60,10 @@ export async function POST(request: NextRequest) {
       sound: 'default',
       title: title,
       body: message,
-      data: {
+      data: buildExpoDataPayload({
         deepLinkType: deep_link_type,
         deepLinkValue: deep_link_value,
-      },
+      }),
     };
 
     // Send push notification

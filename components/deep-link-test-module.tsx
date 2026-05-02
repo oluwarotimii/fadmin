@@ -12,6 +12,11 @@ export default function DeepLinkTestModule() {
     imageUrl: "",
     deepLinkType: "none",
     deepLinkValue: "",
+    pageSlug: "awoof",
+    awoofActionType: "open_feed",
+    awoofReplaceCart: true,
+    awoofItemsJson: `[\n  { "productId": 123, "quantity": 2 },\n  { "productId": 456, "quantity": 1 }\n]`,
+    awoofProductId: "123",
   })
 
   const [loading, setLoading] = useState(false)
@@ -23,6 +28,31 @@ export default function DeepLinkTestModule() {
     setResult(null)
 
     try {
+      const deepLinkValue =
+        formData.deepLinkType === "page"
+          ? JSON.stringify({
+              page: formData.pageSlug,
+              awoofAction:
+                formData.pageSlug !== "awoof"
+                  ? undefined
+                  : formData.awoofActionType === "open_feed"
+                    ? { actionType: "open_feed" }
+                    : formData.awoofActionType === "open_cart"
+                      ? {
+                          actionType: "open_cart",
+                          replaceCart: Boolean(formData.awoofReplaceCart),
+                          items: JSON.parse(formData.awoofItemsJson || "[]"),
+                        }
+                      : formData.awoofActionType === "checkout"
+                        ? {
+                            actionType: "checkout",
+                            replaceCart: Boolean(formData.awoofReplaceCart),
+                            items: JSON.parse(formData.awoofItemsJson || "[]"),
+                          }
+                        : { actionType: "checkout_product", productId: Number(formData.awoofProductId) },
+            })
+          : formData.deepLinkValue
+
       const response = await fetch("/api/notifications/test-deep-link", {
         method: "POST",
         headers: {
@@ -33,7 +63,7 @@ export default function DeepLinkTestModule() {
           title: formData.title,
           body: formData.message,
           deepLinkType: formData.deepLinkType,
-          deepLinkValue: formData.deepLinkValue,
+          deepLinkValue,
         }),
       })
 
@@ -104,11 +134,73 @@ export default function DeepLinkTestModule() {
             { label: "None", value: "none" },
             { label: "Product", value: "product" },
             { label: "Category", value: "category" },
+            { label: "Page", value: "page" },
             { label: "External", value: "external" },
           ]}
         />
 
-        {formData.deepLinkType !== "none" && (
+        {formData.deepLinkType === "page" && (
+          <>
+            <FormSelect
+              label="Page"
+              value={formData.pageSlug}
+              onChange={(e) => setFormData({ ...formData, pageSlug: e.target.value })}
+              options={[
+                { label: "Awoof", value: "awoof" },
+              ]}
+            />
+
+            {formData.pageSlug === "awoof" && (
+              <>
+                <FormSelect
+                  label="Awoof Action"
+                  value={formData.awoofActionType}
+                  onChange={(e) => setFormData({ ...formData, awoofActionType: e.target.value })}
+                  options={[
+                    { label: "Open feed", value: "open_feed" },
+                    { label: "Prefill + open cart", value: "open_cart" },
+                    { label: "Prefill + checkout cart", value: "checkout" },
+                    { label: "Checkout one product", value: "checkout_product" },
+                  ]}
+                />
+
+                {(formData.awoofActionType === "open_cart" || formData.awoofActionType === "checkout") && (
+                  <>
+                    <FormSelect
+                      label="Replace Cart"
+                      value={String(formData.awoofReplaceCart)}
+                      onChange={(e) => setFormData({ ...formData, awoofReplaceCart: e.target.value === "true" })}
+                      options={[
+                        { label: "Yes", value: "true" },
+                        { label: "No", value: "false" },
+                      ]}
+                    />
+
+                    <FormField
+                      label="Items JSON"
+                      type="textarea"
+                      placeholder='[{"productId":123,"quantity":2}]'
+                      value={formData.awoofItemsJson}
+                      onChange={(e) => setFormData({ ...formData, awoofItemsJson: e.target.value })}
+                    />
+                  </>
+                )}
+
+                {formData.awoofActionType === "checkout_product" && (
+                  <FormField
+                    label="Product ID (WooCommerce)"
+                    type="text"
+                    placeholder="123"
+                    value={formData.awoofProductId}
+                    onChange={(e) => setFormData({ ...formData, awoofProductId: e.target.value })}
+                  />
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {formData.deepLinkType !== "none" && formData.deepLinkType !== "page" && (
           <FormField
             label={`${formData.deepLinkType.charAt(0).toUpperCase() + formData.deepLinkType.slice(1)} Value`}
             type="text"
